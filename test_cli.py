@@ -13,6 +13,17 @@ from rem_dashboard import layout, terminal_columns
 
 
 class InterfaceTests(unittest.TestCase):
+    def test_home_dashboard_bottom_matches_menu(self):
+        from rem_dashboard import capture, compose_page
+        from rem_ui import ANSI
+        with patch.object(cli, 'UI', Terminal(color=False, width=84)):
+            left = capture(lambda: cli._main_menu(cli.DEFAULTS))
+        combined = compose_page(left, 195, 49, False, {}, cli.DEFAULTS, {})
+        left_bottom = max(i for i, row in enumerate(left) if ANSI.sub('', row).startswith('╰'))
+        right_bottom = max(i for i, row in enumerate(combined)
+                           if ANSI.sub('', row)[87:].startswith('╰'))
+        self.assertEqual(left_bottom, right_bottom)
+
     def test_terminal_width_ignores_stale_environment(self):
         import os
         with patch('rem_dashboard.os.name', 'posix'), \

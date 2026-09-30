@@ -160,8 +160,11 @@ def compose_page(left, width, height, color, system, settings, task):
     left_width = 84
     right_width = min(left_width, width - left_width - 3)
     
+    from rem_ui import ANSI
+    last_border = max((index for index, line in enumerate(left)
+                       if ANSI.sub('', line).startswith('╰')), default=30)
     right = ['', ''] + render_dashboard(right_width, color, system, settings, task,
-                                       height=min(29, height - 2))
+                                       height=min(last_border - 1, height - 2))
     from rem_screen import clip_line
     return combine([clip_line(line, left_width) for line in left], right,
                    left_width, 3)[:height]
