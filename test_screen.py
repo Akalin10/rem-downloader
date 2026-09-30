@@ -8,6 +8,28 @@ from rem_screen import Canvas
 
 
 class ScreenTests(unittest.TestCase):
+    def test_resize_repaints_without_input_and_restores_full_page(self):
+        from rem_ui import Terminal, ANSI, cells
+        output = io.StringIO()
+        with patch('rem_screen.os.name', 'posix'):
+            with Canvas(output=output, dimensions=(196, 50)) as screen:
+                Terminal(color=False, width=84).header()
+                Terminal(color=False, width=84).menu('Quality', [('01', '1080p', '')])
+                screen.paint('选择 > 1080')
+                original = screen.previous.copy()
+                screen.dimensions = (60, 18)
+                deadline = __import__('time').monotonic() + 2
+                while screen.last_size != (60, 18) and __import__('time').monotonic() < deadline:
+                    screen.stop_resize.wait(0.02)
+                self.assertEqual(screen.last_size, (60, 18))
+                self.assertTrue(any('选择 > 1080' in ANSI.sub('', row) for row in screen.previous))
+                self.assertTrue(all(cells(row) <= 59 for row in screen.previous))
+                self.assertTrue(any(ANSI.sub('', row).endswith('╯') for row in screen.previous))
+                screen.dimensions = (196, 50)
+                screen.paint(screen.active_prompt, reuse=True)
+                self.assertEqual(screen.previous, original)
+                self.assertGreaterEqual(output.getvalue().count('\x1b[2J'), 4)
+
     def test_partial_page_is_not_published_before_flush(self):
         output = io.StringIO()
         with patch('rem_screen.os.name', 'posix'):

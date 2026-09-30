@@ -7,6 +7,7 @@ import shutil
 import signal
 import sys
 import time
+import threading
 import unicodedata
 
 SGR = re.compile(r'\x1b\[[0-9;]*m')
@@ -45,6 +46,11 @@ class Canvas:
         self.console_mode = None
         self.input_active = False
         self.compose = None
+        self.last_size = None
+        self.published = []
+        self.active_prompt = None
+        self.render_lock = threading.RLock()
+        self.stop_resize = threading.Event()
 
     @property
     def encoding(self):
@@ -92,7 +98,14 @@ class Canvas:
                 except ValueError:
                     pass
         atexit.register(self.close)
+        self.resize_thread = threading.Thread(target=self.watch_resize, daemon=True)
+        self.resize_thread.start()
         return self
+
+    def watch_resize(self):
+        while not self.stop_resize.wait(0.1):
+            if self.last_size is not None and tuple(self.size()) != self.last_size:
+                self.paint(self.active_prompt, reuse=True)
 
     def _terminate(self, signum, frame):
         raise SystemExit(128 + signum)
@@ -105,6 +118,9 @@ class Canvas:
         if self.closed:
             return
         self.closed = True
+        self.stop_resize.set()
+        if hasattr(self, 'resize_thread'):
+            self.resize_thread.join(timeout=1)
         sys.stdout = self.original_stdout
         ACTIVE_SCREEN = None
         try:
@@ -148,20 +164,46 @@ class Canvas:
     def flush(self):
         self.paint()
 
-    def paint(self, prompt=None):
+    def paint(self, prompt=None, reuse=False):
+        with self.render_lock:
+            self._paint(prompt, reuse)
+
+    def _paint(self, prompt, reuse):
+        if self.closed:
+            return
         width, height = self.size()
+        dimensions = (width, height)
+        resized = dimensions != self.last_size
+        if reuse:
+            content = self.published.copy()
+        else:
+            content = self.lines + ([self.current] if self.current else [])
+            self.published = content.copy()
+            self.active_prompt = prompt
         width, height = max(1, width - 1), max(2, height)
-        content = self.lines + ([self.current] if self.current else [])
         if prompt is not None:
             content += [prompt]
+        if len(content) > height - 1:
+            borders = [i for i, line in enumerate(content) if SGR.sub('', line).startswith('╰')]
+            if borders and borders[0] >= 18:
+                content = content[:3] + content[borders[0]:]
         
         visible = content[-(height - 1):]
         prompt_row = len(visible)
         if self.compose:
             visible = self.compose(visible, width, height - 1)
-        frame = [clip_line(line, width) for line in visible]
+        frame = []
+        for line in visible:
+            clean = SGR.sub('', line)
+            if width < 84 and clean.startswith(('╭', '│', '╰')):
+                closing = {'╭': '╮', '│': '│', '╰': '╯'}[clean[0]]
+                line = clip_line(line, width - 1) + closing
+            frame.append(clip_line(line, width))
         frame += ['\x1b[0m'] * (height - len(frame))
         commands = ['\x1b[?25l']
+        if resized:
+            commands.append('\x1b[0m\x1b[2J\x1b[H')
+            self.previous = []
         for row, line in enumerate(frame):
             if row >= len(self.previous) or line != self.previous[row]:
                 commands.append(f'\x1b[{row + 1};1H\x1b[2K' + line)
@@ -172,6 +214,7 @@ class Canvas:
         self.output.write(''.join(commands))
         self.output.flush()
         self.previous = frame
+        self.last_size = dimensions
         self.last_paint = time.monotonic()
 
     def ask(self, prompt):
@@ -210,6 +253,7 @@ class Canvas:
                     answer.append(char)
                 self.paint(prompt + ''.join(answer))
         finally:
+            self.active_prompt = None
             if restore:
                 restore()
             self.output.write('\x1b[?25l')
