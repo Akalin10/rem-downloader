@@ -435,9 +435,7 @@ def show_about():
     UI.box('✿  About Rem Terminal  ✿', [
         'Project  : Rem Downloader', 'Version  : 2.0.0',
         'Theme    : Rem / Re:Zero', 'Engine   : yt-dlp',
-        f'Python   : {sys.version.split()[0]}', 'Interface: ANSI terminal / Python standard library',
-        ('青蓝边框 · 粉色点缀 · 绿色完成 · 红色错误', 'pink'),
-        ('下载画质严格匹配；实际格式以服务器返回为准。', 'muted')])
+        f'Python   : {sys.version.split()[0]}', 'Interface: ANSI terminal / Python standard library'])
 
 
 def _main_menu(settings):
