@@ -1,4 +1,3 @@
-"""Responsive side dashboard rendered using the same terminal panels."""
 import contextlib
 import io
 from pathlib import Path
@@ -9,7 +8,7 @@ from rem_ui import Terminal, cells, shorten
 
 
 def terminal_columns():
-    """Read the actual console viewport, ignoring stale COLUMNS variables."""
+
     if os.name == 'nt':
         class Coord(ctypes.Structure):
             _fields_ = [('X', ctypes.c_short), ('Y', ctypes.c_short)]
@@ -25,7 +24,7 @@ def terminal_columns():
         kernel.GetConsoleScreenBufferInfo.argtypes = [ctypes.c_void_p, ctypes.POINTER(BufferInfo)]
         kernel.GetConsoleScreenBufferInfo.restype = ctypes.c_int
         info = BufferInfo()
-        # Input remains attached to the console even if stdout is redirected.
+        
         for code in (-11, -10, -12):
             handle = kernel.GetStdHandle(code & 0xffffffff)
             if kernel.GetConsoleScreenBufferInfo(handle, ctypes.byref(info)):
@@ -35,7 +34,7 @@ def terminal_columns():
             return os.get_terminal_size(fd).columns
         except OSError:
             pass
-    # Unknown viewport must not silently move the requested right panel below.
+    
     return 196
 
 
@@ -155,12 +154,12 @@ def layout(ui, draw_left, system, settings, task):
 
 
 def compose_page(left, width, height, color, system, settings, task):
-    """Keep the dashboard alongside every page, independent of menu output."""
+
     if width < 166:
         return left
     left_width = 84
     right_width = min(left_width, width - left_width - 3)
-    # Match the home page's panel height even on shorter selection pages.
+    
     right = ['', ''] + render_dashboard(right_width, color, system, settings, task,
                                        height=min(29, height - 2))
     from rem_screen import clip_line

@@ -1,4 +1,3 @@
-"""Render the actual terminal strings for an offline preview (requires Pillow)."""
 import contextlib
 import io
 import re
@@ -16,7 +15,7 @@ def main():
     ui.interactive = False
     cli.UI = ui
     output = io.StringIO()
-    # Shareable previews must never include the current user's system metadata.
+    
     settings = dict(cli.DEFAULTS, output='Downloads', cookies='')
     cli.SYSTEM_CACHE[(settings['backend'], settings['ffmpeg'])] = {
         'os': 'Windows', 'user': 'RemUser', 'terminal': 'Windows Terminal',

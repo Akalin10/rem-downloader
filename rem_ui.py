@@ -1,4 +1,3 @@
-"""Rem themed ANSI terminal rendering, no third-party packages."""
 from __future__ import annotations
 
 import ctypes
@@ -34,7 +33,7 @@ def cells(value):
 
 
 def shorten(value, width):
-    # Text supplied by subprocesses is untrusted terminal data.
+    
     text = ANSI.sub('', str(value)).replace('\x1b', '').replace('\r', ' ').replace('\n', ' ')
     text = ''.join(c for c in text if c >= ' ')
     if cells(text) <= width:

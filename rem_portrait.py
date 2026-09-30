@@ -1,4 +1,3 @@
-"""Small native pixel sprite, rendered as true-color terminal half blocks."""
 import json
 from pathlib import Path
 from functools import lru_cache
@@ -47,20 +46,20 @@ def sprite():
                 if inside:
                     pixel(x, y, color)
 
-    # Silhouette and maid bodice.
+    
     poly([(10, 41), (11, 36), (16, 32), (24, 32), (30, 36), (32, 41)], 'o')
     poly([(12, 41), (13, 36), (18, 33), (24, 33), (29, 37), (30, 41)], 'w')
     poly([(16, 41), (16, 36), (20, 35), (25, 36), (26, 41)], 'k')
     rect(18, 30, 23, 35, 't')
     rect(19, 30, 23, 34, 's')
-    # Short blue bob and face.
+    
     ellipse(20, 19, 16, 17, 'o')
     ellipse(20, 18, 15, 16, 'h')
     ellipse(19, 16, 14, 14, 'b')
     ellipse(20, 21, 10, 11, 't')
     ellipse(20, 20, 10, 11, 's')
     ellipse(29, 23, 2, 3, 't')
-    # Exposed eye, lashes, iris and highlights.
+    
     poly([(23, 20), (24, 18), (28, 18), (30, 20), (29, 24), (24, 24)], 'o')
     ellipse(26, 21, 3, 3, 'w')
     ellipse(27, 21, 2, 3, 'h')
@@ -76,7 +75,7 @@ def sprite():
     pixel(22, 25, 't')
     rect(21, 28, 23, 28, 't')
     pixel(22, 29, 'w')
-    # Layered bangs cover the other eye. Separate strands carry highlights.
+    
     poly([(9, 7), (27, 5), (23, 13), (20, 21), (18, 28), (16, 26), (11, 29), (7, 25)], 'b')
     poly([(11, 7), (17, 6), (12, 24), (9, 28), (8, 23)], 'l')
     poly([(17, 6), (21, 5), (16, 23), (12, 28)], 'l')
@@ -88,14 +87,14 @@ def sprite():
     rect(32, 19, 32, 27, 'l')
     poly([(5, 16), (7, 11), (7, 26), (11, 32), (7, 30), (4, 25)], 'h')
     rect(6, 18, 6, 25, 'b')
-    # Curved black headband with white lace clusters.
+    
     poly([(8, 8), (10, 4), (17, 1), (24, 1), (30, 4), (33, 9), (30, 8), (26, 5), (17, 4), (11, 7)], 'k')
     for x, y in [(10, 5), (14, 3), (18, 2), (22, 2), (26, 3), (30, 5)]:
         ellipse(x, y, 2, 2, 'g')
         rect(x - 1, y - 1, x + 1, y + 1, 'w')
         pixel(x, y + 2, 'w')
         pixel(x, y, 'a')
-    # Pink crossed hairpins and side flower ribbon.
+    
     for i in range(5):
         pixel(30 + i, 12 + i, 'p')
         pixel(34 - i, 12 + i, 'p')
@@ -104,7 +103,7 @@ def sprite():
     pixel(34, 11, 'w')
     poly([(34, 15), (36, 17), (35, 27), (33, 29)], 'r')
     rect(35, 18, 35, 25, 'p')
-    # Frilled white collar, black bow and apron accents.
+    
     poly([(16, 33), (20, 35), (18, 38), (14, 35)], 'w')
     poly([(24, 33), (20, 35), (23, 38), (27, 35)], 'w')
     poly([(17, 35), (20, 36), (17, 38)], 'o')
@@ -113,7 +112,7 @@ def sprite():
     rect(13, 38, 14, 41, 'g')
     rect(27, 38, 28, 41, 'g')
     pixel(20, 39, 'w')
-    # A pair of small petals outside the silhouette.
+    
     pixel(2, 9, 'p')
     pixel(1, 10, 'p')
     pixel(3, 10, 'p')
@@ -166,7 +165,7 @@ QUADRANTS = ' ▘▝▀▖▌▞▛▗▚▐▜▄▙▟█'
 
 
 def quadrant_rows(grid):
-    """Encode four subpixels with two colors, keeping the same terminal footprint."""
+
     def distance(a, b):
         return sum(weight * (x - y) ** 2 for weight, x, y in zip((0.3, 0.59, 0.11), a, b))
     def average(group):
@@ -176,8 +175,8 @@ def quadrant_rows(grid):
         line = ''
         for x in range(0, len(grid[0]), 2):
             colors = [grid[y][x], grid[y][x + 1], grid[y + 1][x], grid[y + 1][x + 1]]
-            # Exhaustively evaluate all distinct two-color partitions instead of
-            # letting one outlier choose the colors for the whole terminal cell.
+            
+            
             best = None
             for candidate in range(1, 8):
                 groups = [[color for i, color in enumerate(colors) if bool(candidate & (1 << i)) == foreground]

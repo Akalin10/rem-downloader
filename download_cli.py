@@ -1,4 +1,3 @@
-"""中文 yt-dlp 菜单；仅使用 Python 标准库。"""
 from __future__ import annotations
 
 import argparse
@@ -68,7 +67,7 @@ def url_input():
         value = UI.ask('视频网址（留空返回）').strip()
         if not value:
             return None
-        # 允许直接粘贴聊天中的 Markdown 链接。
+        
         if value.startswith('[') and '](' in value and value.endswith(')'):
             value = value.split('](', 1)[1][:-1]
         value = value.strip('"\'')
@@ -119,7 +118,7 @@ def build_command(settings, url, options, download=True):
     command = backend_command(settings) + common_args(settings)
     host = (urlparse(url).hostname or '').lower()
     if host == 'youtu.be' or host == 'youtube.com' or host.endswith('.youtube.com'):
-        # Safari 的 HLS 格式可补充默认客户端仅返回 360p 的情况。
+        
         command += ['--extractor-args', 'youtube:player_client=default,web_safari']
     if download:
         command += ['--newline', '--progress', '-P', settings['output'],

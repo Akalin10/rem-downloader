@@ -1,4 +1,3 @@
-"""Alternate-screen canvas and line input; never append frames to scrollback."""
 from __future__ import annotations
 
 import atexit
@@ -128,8 +127,8 @@ class Canvas:
         if '\x1b[2J' in text:
             self.clear()
             text = text.replace('\x1b[2J', '').replace('\x1b[H', '')
-        # Only generated text colors belong in the canvas; cursor movement is
-        # handled by the painter, not by arbitrary output strings.
+        
+        
         text = re.sub(r'\x1b\[[0-9;?]*[A-ln-zA-Z]', '', text)
         for part in re.split(r'([\r\n])', text):
             if part == '\r':
@@ -139,11 +138,11 @@ class Canvas:
                 self.current = ''
             else:
                 self.current += part
-        # The model is bounded as well as the rendered viewport.
+        
         if len(self.lines) > 400:
             self.lines = self.lines[-400:]
-        # Pages are assembled by several print calls. Publish only at explicit
-        # flush/input boundaries so a half-built header never replaces a frame.
+        
+        
         return original_length
 
     def flush(self):
@@ -155,7 +154,7 @@ class Canvas:
         content = self.lines + ([self.current] if self.current else [])
         if prompt is not None:
             content += [prompt]
-        # Reserve the last physical row to avoid native terminal scrolling.
+        
         visible = content[-(height - 1):]
         prompt_row = len(visible)
         if self.compose:
@@ -176,8 +175,8 @@ class Canvas:
         self.last_paint = time.monotonic()
 
     def ask(self, prompt):
-        # Native echo/readline would append Enter/newlines outside the canvas.
-        # Read keys without echo, then repaint just the edited prompt row.
+        
+        
         answer = []
         self.paint(prompt)
         if os.name == 'nt':
@@ -202,7 +201,7 @@ class Canvas:
                 if char == '\x04' and not answer:
                     raise EOFError
                 if char in ('\x00', '\xe0') and os.name == 'nt':
-                    get_key()  # Windows arrows/function keys are two-part codes.
+                    get_key()  
                     continue
                 if char in ('\b', '\x7f'):
                     if answer:
