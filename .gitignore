@@ -1,0 +1,45 @@
+# Local credentials and user preferences
+cookies*.txt
+*.cookies
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+.codex/
+.agents/
+.aws/
+download_settings.json
+
+# Downloaded media and runtime records
+/downloads/
+download_history.json
+last_download_error.log
+*.log
+*.part
+*.ytdl
+
+# Optional local copy of the upstream downloader
+/yt-dlp-master/
+
+# Python environments and caches
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Generated visual previews and local QA output
+rem-*-preview.png
+qa_download_*.json
+qa_download_session.py
+/prompts.md
+
+# Local editor and OS metadata
+.vscode/
+.idea/
+Thumbs.db
+Desktop.ini
