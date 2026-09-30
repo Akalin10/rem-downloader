@@ -43,3 +43,4 @@ qa_download_session.py
 .idea/
 Thumbs.db
 Desktop.ini
+*.lnk

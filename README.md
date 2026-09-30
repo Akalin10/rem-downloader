@@ -13,6 +13,14 @@ python download_cli.py
 
 Windows 下也可双击 `run.cmd`。推荐使用 Windows Terminal 和支持中文及四分格字符的等宽字体；宽窗口会显示右侧仪表盘。
 
+创建带专属图标的桌面快捷方式：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\create_shortcut.ps1
+```
+
+图标保存在 `assets/rem-downloader.ico`，包含多种尺寸；PNG 原图也包含在项目内。移动项目后请重新运行脚本以更新快捷方式。
+
 ## 功能
 
 - 下载视频、音频，查看格式或按格式 ID 下载。
