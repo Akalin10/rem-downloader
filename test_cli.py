@@ -13,6 +13,31 @@ from rem_dashboard import layout, terminal_columns
 
 
 class InterfaceTests(unittest.TestCase):
+    def test_cookie_files_are_selected_by_site_for_all_commands(self):
+        with tempfile.TemporaryDirectory() as directory:
+            youtube = Path(directory) / 'cookies.txt'
+            bilibili = Path(directory) / 'B_cookies.txt'
+            youtube.touch()
+            bilibili.touch()
+            settings = dict(cli.DEFAULTS, cookies=str(youtube), bilibili_cookies=str(bilibili))
+            cases = [('https://youtu.be/abc', str(youtube)),
+                     ('https://www.youtube.com/watch?v=abc', str(youtube)),
+                     ('https://www.bilibili.com/video/BV1xgb96TEen', str(bilibili)),
+                     ('https://b23.tv/abc', str(bilibili)),
+                     ('https://youtube.com.evil.example/video', ''),
+                     ('https://evil.example/?url=bilibili.com', '')]
+            with patch.object(cli, 'backend_command', return_value=['yt-dlp']):
+                for url, expected in cases:
+                    self.assertEqual(cli.cookies_for_url(settings, url), expected)
+                    for options in (['-F'], ['-f', 'best'], ['-x']):
+                        command = cli.build_command(settings, url, options)
+                        if expected:
+                            self.assertEqual(command[command.index('--cookies') + 1], expected)
+                        else:
+                            self.assertNotIn('--cookies', command)
+            settings['bilibili_cookies'] = ''
+            self.assertEqual(cli.cookies_for_url(settings, 'https://b23.tv/abc'), '')
+
     def test_home_dashboard_bottom_matches_menu(self):
         from rem_dashboard import capture, compose_page
         from rem_ui import ANSI

@@ -25,6 +25,7 @@ SYSTEM_CACHE = {}
 DEFAULTS = {
     'output': str(ROOT / 'downloads'),
     'cookies': str(ROOT / 'cookies.txt') if (ROOT / 'cookies.txt').is_file() else '',
+    'bilibili_cookies': str(ROOT / 'B_cookies.txt') if (ROOT / 'B_cookies.txt').is_file() else '',
     'backend': 'installed',
     'ffmpeg': '',
     'character': 'on',
@@ -97,10 +98,20 @@ def ffmpeg_available(settings):
     return bool(shutil.which('ffmpeg'))
 
 
-def common_args(settings):
+def cookies_for_url(settings, url):
+    host = (urlparse(url).hostname or '').lower()
+    if host == 'youtu.be' or host == 'youtube.com' or host.endswith('.youtube.com'):
+        return settings.get('cookies', '')
+    if host in ('bilibili.com', 'b23.tv') or host.endswith('.bilibili.com'):
+        return settings.get('bilibili_cookies', DEFAULTS['bilibili_cookies'])
+    return ''
+
+
+def common_args(settings, url=''):
     args = ['--no-playlist', '--encoding', 'utf-8']
-    if settings['cookies']:
-        cookie_path = Path(settings['cookies']).expanduser()
+    selected_cookies = cookies_for_url(settings, url)
+    if selected_cookies:
+        cookie_path = Path(selected_cookies).expanduser()
         if not cookie_path.is_file():
             raise ValueError(f'Cookies 文件不存在：{cookie_path}；可在设置中清空路径。')
         args += ['--cookies', str(cookie_path)]
@@ -115,7 +126,7 @@ def video_format(height, merge):
 
 
 def build_command(settings, url, options, download=True):
-    command = backend_command(settings) + common_args(settings)
+    command = backend_command(settings) + common_args(settings, url)
     host = (urlparse(url).hostname or '').lower()
     if host == 'youtu.be' or host == 'youtube.com' or host.endswith('.youtube.com'):
         
@@ -378,12 +389,13 @@ def edit_settings(settings):
         UI.header('Settings', '設定・カスタマイズ / 修改后自动保存')
         UI.menu('设置 / Settings', [
             ('01', '默认下载路径', settings['output']),
-            ('02', 'Cookie 设置', settings['cookies'] or '不使用'),
+            ('02', 'YouTube Cookies', settings['cookies'] or '不使用'),
             ('03', '下载器后端', '本地源码' if settings['backend'] == 'source' else '已安装 yt-dlp'),
             ('04', 'FFmpeg 路径', settings['ffmpeg'] or '从 PATH 自动查找'),
             ('05', '角色装饰', 'ON' if settings['character'] == 'on' else 'OFF'),
-            ('06', '显示执行命令', 'ON' if settings['command'] == 'on' else 'OFF')])
-        choice = choose('选择', {'0', '1', '2', '3', '4', '5', '6'})
+            ('06', '显示执行命令', 'ON' if settings['command'] == 'on' else 'OFF'),
+            ('07', 'B站 Cookies', settings.get('bilibili_cookies', '') or '不使用')])
+        choice = choose('选择', {'0', '1', '2', '3', '4', '5', '6', '7'})
         if choice == '0':
             return
         updated = settings.copy()
@@ -394,7 +406,7 @@ def edit_settings(settings):
             value = choose('1 已安装版本  2 本地源码：', {'1', '2'})
             updated['backend'] = 'installed' if value == '1' else 'source'
         else:
-            key = {'1': 'output', '2': 'cookies', '4': 'ffmpeg'}[choice]
+            key = {'1': 'output', '2': 'cookies', '4': 'ffmpeg', '7': 'bilibili_cookies'}[choice]
             value = UI.ask('输入路径（保存目录留空不变，其他留空清除）').strip().strip('"')
             if key == 'output' and not value:
                 continue
@@ -402,7 +414,7 @@ def edit_settings(settings):
                 path = Path(os.path.expandvars(value)).expanduser()
                 if not path.is_absolute():
                     path = ROOT / path
-                if key == 'cookies' and not path.is_file():
+                if key in ('cookies', 'bilibili_cookies') and not path.is_file():
                     print('文件不存在，设置未更改。')
                     continue
                 if key == 'ffmpeg' and not (path.is_file() or (path / 'ffmpeg.exe').is_file()):
@@ -442,10 +454,7 @@ def download_danmaku(settings, url):
     UI.header('Bilibili Danmaku', 'B站弹幕 / PotPlayer ASS')
     UI.note('保留全部返回内容与重复弹幕，不限制数量。')
     UI.note('只获取当前接口可见弹幕，不包含已删除或所有历史弹幕。', 'muted')
-    cookie_path = settings['cookies']
-    site_cookies = ROOT / 'B_cookies.txt'
-    if site_cookies.is_file() and (not cookie_path or Path(cookie_path).expanduser().resolve() == (ROOT / 'cookies.txt').resolve()):
-        cookie_path = str(site_cookies)
+    cookie_path = cookies_for_url(settings, url)
     UI.note('弹幕 Cookies：' + (Path(cookie_path).name if cookie_path else '未使用'), 'muted')
     client = BilibiliClient(cookie_path)
     CURRENT_TASK.clear()
