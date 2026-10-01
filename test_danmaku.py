@@ -77,7 +77,7 @@ class DanmakuTests(unittest.TestCase):
                 factory.return_value.download.return_value = messages, xml
                 cli.download_danmaku(dict(cli.DEFAULTS, output=directory, cookies=''), 'https://www.bilibili.com/video/BV1xx411c7mD')
             self.assertEqual(cli.CURRENT_TASK['status'], '完成')
-            self.assertEqual(xml.with_suffix('.ass').read_text(encoding='utf-8-sig').count('Dialogue:'), 2)
+            self.assertEqual((Path(directory) / 'ASS' / xml.with_suffix('.ass').name).read_text(encoding='utf-8-sig').count('Dialogue:'), 2)
             self.assertIn('不去重', output.getvalue())
 
     def test_protobuf_unknown_fields_and_duplicates(self):
@@ -108,7 +108,7 @@ class DanmakuTests(unittest.TestCase):
             self.assertEqual(len(list(Path(directory).rglob('*.bin'))), 3)
             self.assertTrue(urls[-1].endswith('segment_index=3'))
             self.assertEqual(progress[-1], (3, 3, 3))
-            self.assertEqual(xml.parent, Path(directory))
+            self.assertEqual(xml.parent, Path(directory) / 'XML')
 
     def test_failed_segment_does_not_export_complete_xml(self):
         with tempfile.TemporaryDirectory() as directory:

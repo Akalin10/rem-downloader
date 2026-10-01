@@ -227,6 +227,18 @@ def run_command(command):
                     saved = json.loads(line.split(':', 1)[1])
                 except ValueError:
                     saved = line.split(':', 1)[1]
+                source = Path(saved)
+                if source.is_file() and '-P' in command:
+                    root = Path(command[command.index('-P') + 1]).expanduser().resolve()
+                    if source.resolve().is_relative_to(root):
+                        folder = root / (source.suffix[1:].upper() or 'OTHER')
+                        folder.mkdir(parents=True, exist_ok=True)
+                        target = folder / source.name
+                        if source.resolve() != target.resolve():
+                            if target.exists():
+                                raise FileExistsError(f'目标文件已存在，保留新文件原位置：{source}')
+                            shutil.move(str(source), str(target))
+                        saved = str(target)
                 CURRENT_TASK['path'] = saved
             elif line.startswith('REM_PROGRESS:'):
                 values = line.split(':', 1)[1].split('|')
@@ -498,7 +510,9 @@ def download_danmaku(settings, url):
                                 f'弹幕 : {count} 条', '原始分段保存在下载目录，可用于检查。'])
             sys.stdout.flush()
         messages, xml = client.download(video, page, settings['output'], progress)
-        ass = xml.with_suffix('.ass')
+        ass_folder = Path(settings['output']).expanduser() / 'ASS'
+        ass_folder.mkdir(parents=True, exist_ok=True)
+        ass = ass_folder / xml.with_suffix('.ass').name
         special = write_ass(messages, ass, font_size, opacity, duration)
         CURRENT_TASK.update(status='完成', percent=100, path=str(ass), downloaded=f'{len(messages)} 条',
                             total=f'{len(messages)} 条', notice='')

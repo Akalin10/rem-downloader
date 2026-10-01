@@ -23,6 +23,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\create_shortcut.ps1
 
 ## 功能
 
+设置的下载路径作为根目录。视频和音频完成合并或转码后，按最终扩展名归入 `MP4`、`WEBM`、`MP3`、`M4A` 等子目录；弹幕分别保存到 `ASS`、`XML` 和 `DANMAKU_RAW`。旧下载文件不会自动迁移。
+
 - 下载视频、音频，查看格式或按格式 ID 下载。
 - 指定画质严格匹配，最高可用模式自动选择最佳格式。
 - 实时进度、历史记录、Cookies 和 FFmpeg 路径设置。

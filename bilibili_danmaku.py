@@ -168,8 +168,8 @@ class BilibiliClient:
         title = video['title'] + (f' P{page["page"]} {page["part"]}' if len(video['pages']) > 1 else '')
         title = re.sub(r'[<>:"/\\|?*\x00-\x1f]', '_', title).strip(' .')[:100] or 'Bilibili'
         stem = f'{title} [{video["bvid"]}] [{page["cid"]}].danmaku'
-        raw_dir = destination / (stem + '.segments')
-        raw_dir.mkdir(exist_ok=True)
+        raw_dir = destination / 'DANMAKU_RAW' / (stem + '.segments')
+        raw_dir.mkdir(parents=True, exist_ok=True)
         count = max(1, math.ceil(page['duration'] / 360))
         messages = []
         for index in range(1, count + 1):
@@ -188,7 +188,9 @@ class BilibiliClient:
                 progress(index, count, len(messages))
             if index < count:
                 time.sleep(0.2)
-        xml = destination / (stem + '.xml')
+        xml_folder = destination / 'XML'
+        xml_folder.mkdir(parents=True, exist_ok=True)
+        xml = xml_folder / (stem + '.xml')
         write_xml(messages, xml, page['cid'])
         return messages, xml
 

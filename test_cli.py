@@ -13,6 +13,24 @@ from rem_dashboard import layout, terminal_columns
 
 
 class InterfaceTests(unittest.TestCase):
+    def test_finished_audio_is_sorted_by_final_extension(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / 'audio.mp3'
+            source.write_bytes(b'test audio')
+            class Process:
+                stdout = io.StringIO('REM_FILE:' + json.dumps(str(source)) + '\n')
+                def wait(self):
+                    return 0
+            with patch.object(cli.subprocess, 'Popen', return_value=Process()), \
+                    patch.object(cli, 'HISTORY', root / 'history.json'), \
+                    patch.object(cli.sys.stdin, 'isatty', return_value=False), \
+                    contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(cli.run_command(['yt-dlp', '-P', directory, 'REM_FILE:']), 0)
+            self.assertEqual((root / 'MP3' / 'audio.mp3').read_bytes(), b'test audio')
+            self.assertFalse(source.exists())
+            self.assertEqual(cli.CURRENT_TASK['path'], str(root / 'MP3' / 'audio.mp3'))
+
     def test_cookie_files_are_selected_by_site_for_all_commands(self):
         with tempfile.TemporaryDirectory() as directory:
             youtube = Path(directory) / 'cookies.txt'
