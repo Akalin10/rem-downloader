@@ -8,6 +8,21 @@ from rem_screen import Canvas
 
 
 class ScreenTests(unittest.TestCase):
+    def test_download_dashboard_bottom_matches_short_left_task_panel(self):
+        from rem_dashboard import capture, compose_page
+        from rem_ui import Terminal, ANSI
+        ui = Terminal(color=True, width=84)
+        left = capture(lambda: (ui.header('Downloading', '正在下载'),
+                       ui.box('Downloading', ['任务名称 : test', '实际画质 : 1080p',
+                                              '格式 : mp4', 'Ctrl+C 取消'])))
+        for width, height in ((195, 49), (150, 34), (120, 30)):
+            frame = compose_page(left, width, height, True, {}, {'output': '.'},
+                                 {'status': '下载中', 'percent': 12.6})
+            split = min(84, (width - 3) // 2) + 3
+            left_bottom = max(i for i, row in enumerate(frame) if ANSI.sub('', row).startswith('╰'))
+            right_bottom = max(i for i, row in enumerate(frame) if ANSI.sub('', row)[split:].startswith('╰'))
+            self.assertEqual(left_bottom, right_bottom)
+
     def test_clipped_right_border_keeps_original_color(self):
         from rem_screen import fit_line
         from rem_ui import Terminal, COLORS

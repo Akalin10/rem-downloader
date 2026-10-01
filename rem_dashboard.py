@@ -216,5 +216,12 @@ def compose_page(left, width, height, color, system, settings, task):
     else:
         right = ['', ''] + render_dashboard(right_width, color, system, settings, task,
                                            height=min(last_border - 1, height - 2))
+    right_bottom = max((i for i, line in enumerate(right)
+                        if ANSI.sub('', line).startswith('╰')), default=last_border)
+    if right_bottom > last_border and right_bottom < height:
+        from rem_screen import SGR
+        style = SGR.match(left[last_border])
+        blank = (style[0] if style else '') + '│' + ' ' * (left_width - 2) + '│\x1b[0m'
+        left[last_border:last_border] = [blank] * (right_bottom - last_border)
     return combine([clip_line(line, left_width) for line in left], right,
                    left_width, 3)[:height]
