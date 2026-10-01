@@ -1,4 +1,5 @@
 cookies*.txt
+*cookies*.txt
 *.cookies
 .env
 .env.*
