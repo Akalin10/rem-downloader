@@ -159,20 +159,27 @@ def compose_page(left, width, height, color, system, settings, task):
     left_width = min(84, max(32, (width - 3) // 2)) if width >= 100 else width
     borders = [i for i, line in enumerate(left) if ANSI.sub('', line).startswith('╰')]
     if borders and borders[0] >= 18 and (height < len(left) or left_width < 76):
-        from rem_portrait import rgb_sprite
-        sprite_width = min(24, max(10, left_width // 3))
-        grid = rgb_sprite(sprite_width)
-        art_height = min(10, max(3, height - (len(left) - borders[0]) - 4))
+        import json
+        from rem_portrait import quadrant_rows
+        sprite_width = min(32, max(12, left_width // 2 - 2))
+        grid = json.loads(Path(__file__).with_name('rem_portrait_rgb.json').read_text(encoding='utf-8'))['32_quadrants']['pixels']
+        art_height = min(18, max(3, height - (len(left) - borders[0]) - 4))
+        sampled = [[grid[min(len(grid) - 1, y * len(grid) // (art_height * 2))]
+                        [min(len(grid[0]) - 1, x * len(grid[0]) // (sprite_width * 2))]
+                    for x in range(sprite_width * 2)] for y in range(art_height * 2)]
+        artwork = quadrant_rows(sampled) if color else ['▓' * sprite_width] * art_height
         ui = Terminal(color=color, width=left_width)
         def header():
             rows = []
+            captions = ['████  █████ █   █', '█   █ █     ██ ██', '████  ████  █ █ █',
+                        '█  █  █     █   █', '█   █ █████ █   █',
+                        'Rem Terminal Assistant', 'レムにお任せください。']
             for y in range(art_height):
-                pixels = grid[min(len(grid) - 1, y * len(grid) // art_height)]
-                art = ''.join(f'\x1b[48;2;{r};{g};{b}m \x1b[0m' for r, g, b in pixels) if color else '▓' * sprite_width
-                caption = ['REM', 'Rem Terminal Assistant', 'レムにお任せください。'][y] if y < 3 else ''
+                art = artwork[y]
+                caption = captions[y] if y < len(captions) else ''
                 rows.append(art + ui.ink('  ' + shorten(caption, left_width - sprite_width - 6), 'blue'))
             interior = left_width - 4
-            print(ui.ink('╭─ REM ' + '─' * max(0, interior - 5) + '╮'))
+            print(ui.ink('╭─ REM ' + '─' * max(0, interior - 4) + '╮', 'cyan'))
             for row in rows:
                 print(ui.ink('│ ') + row + ' ' * max(0, interior - cells(row)) + ui.ink(' │'))
             print(ui.ink('╰' + '─' * (interior + 2) + '╯'))
@@ -201,11 +208,13 @@ def compose_page(left, width, height, color, system, settings, task):
             f'yt-dlp : {system.get("yt-dlp", "—")}',
             f'Path : {settings["output"]}']))
         right += capture(lambda: ui.box('Rem Status / 蕾姆状态', [('応援 100% · 癒し 100% · 元気 90%', 'pink')]))
-        right += capture(lambda: ui.box('Current Task / 下载任务', [
+        task_lines = [
             task.get('status', '空闲 / Idle'), task.get('title', '等待下载'),
             (f'{bar(task.get("percent", 0), max(4, right_width - 15))} {task.get("percent", 0):.1f}%', 'blue'),
             f'速度 : {task.get("speed", "—")} ETA : {task.get("eta", "—")}',
-            f'保存 : {task.get("path", settings["output"])}']))
+            f'保存 : {task.get("path", settings["output"])}']
+        task_lines += [''] * max(0, min(last_border + 1, height) - len(right) - len(task_lines) - 2)
+        right += capture(lambda: ui.box('Current Task / 下载任务', task_lines))
     else:
         right = ['', ''] + render_dashboard(right_width, color, system, settings, task,
                                            height=min(last_border - 1, height - 2))

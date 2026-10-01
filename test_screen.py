@@ -25,6 +25,12 @@ class ScreenTests(unittest.TestCase):
                 self.assertIn('选择 > 4', text)
                 self.assertTrue(all(cells(row) <= width for row in frame))
                 self.assertLessEqual(len(frame), height)
+                if width >= 100:
+                    left_borders = [i for i, row in enumerate(frame)
+                                    if ANSI.sub('', row).startswith('╰')]
+                    right_borders = [i for i, row in enumerate(frame)
+                                     if '╯' in ANSI.sub('', row)[(width - 3) // 2 + 3:]]
+                    self.assertEqual(left_borders[-1], right_borders[-1])
 
     def test_resize_repaints_without_input_and_restores_full_page(self):
         from rem_ui import Terminal, ANSI, cells
