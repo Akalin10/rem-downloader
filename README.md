@@ -26,6 +26,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\create_shortcut.ps1
 - 下载视频、音频，查看格式或按格式 ID 下载。
 - 指定画质严格匹配，最高可用模式自动选择最佳格式。
 - 实时进度、历史记录、Cookies 和 FFmpeg 路径设置。
+- B站分段弹幕下载，导出 XML 和 PotPlayer 可加载的滚动 ASS。
 - Alternate Screen Buffer，原地更新，支持 Ctrl+C 取消和断点续传。
 
 详细操作见 [使用说明](使用说明.md)。正常运行只使用 Python 标准库，头像数据已包含在 `rem_portrait_rgb.json` 中，不需要原始图片或 Pillow。
@@ -33,7 +34,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\create_shortcut.ps1
 ## 开发检查
 
 ```powershell
-python -m unittest test_cli test_screen
+python -m unittest test_cli test_screen test_danmaku
 python download_cli.py --check
 ```
 
@@ -44,3 +45,11 @@ python download_cli.py --check
 `.gitignore` 排除了 Cookies、设置、下载视频、历史、日志、缓存和临时预览。`yt-dlp-master` 为可选的本地源码后端，不随本项目上传；默认使用已安装的 yt-dlp。
 
 角色图像为主题素材；本项目与原作及 yt-dlp 项目没有官方关联。
+
+## B站弹幕
+
+主菜单选择 **09 下载B站弹幕**，粘贴 BV/av 视频链接（支持 b23.tv 短链接）。多分P视频可选择一个分P，按该分P的全时长逐段获取当前接口可见弹幕；遇到失败不会把未完成结果标记为成功。不能保证包含所有历史、已删除弹幕或平台未返回的弹幕。
+
+不做去重、不限制条数、不进行内容过滤。密集弹幕允许重叠；字号、不透明度和显示时间可自定义。普通滚动、反向滚动、顶部和底部弹幕使用对应 ASS 动画；高级、代码及其他特殊弹幕降级为普通滚动文本，不能还原其全部特效。
+
+将生成的 `.ass` 拖入 PotPlayer，启用 ASS/SSA 动画并使用字幕定义的原始样式。XML 与原始 `.segments` 数据同时保存在自定义下载目录，便于检查。B站风控拒绝请求时可稍后重试，或在设置中配置有效的 Netscape 格式 Cookies；这些文件不会上传 GitHub。

@@ -437,6 +437,77 @@ def show_about():
         f'Python   : {sys.version.split()[0]}', 'Interface: ANSI terminal / Python standard library'])
 
 
+def download_danmaku(settings, url):
+    from bilibili_danmaku import BilibiliClient, write_ass
+    UI.header('Bilibili Danmaku', 'B站弹幕 / PotPlayer ASS')
+    UI.note('保留全部返回内容与重复弹幕，不限制数量。')
+    UI.note('只获取当前接口可见弹幕，不包含已删除或所有历史弹幕。', 'muted')
+    client = BilibiliClient(settings['cookies'])
+    CURRENT_TASK.clear()
+    CURRENT_TASK.update(status='解析中', title='正在获取B站视频信息', percent=0, format='XML + ASS')
+    sys.stdout.flush()
+    try:
+        video = client.video(url)
+        page = video['pages'][video['selected_page'] - 1]
+        if len(video['pages']) > 1:
+            UI.box('视频分P', [f'{part["page"]:02}  {part["part"]}' for part in video['pages']])
+            selection = choose(f'选择分P [默认 {page["page"]} / 0返回]',
+                               {'0'} | {str(part['page']) for part in video['pages']}, str(page['page']))
+            if selection == '0':
+                CURRENT_TASK.update(status='已取消')
+                return
+            page = video['pages'][int(selection) - 1]
+        UI.menu('弹幕样式', [('01', '默认密集', '36px / 85% 不透明 / 滚动8秒'),
+                              ('02', '自定义', '字号 / 不透明度 / 滚动时间')])
+        style = choose('选择 [默认 1 / 0返回]', {'0', '1', '2'}, '1')
+        if style == '0':
+            CURRENT_TASK.update(status='已取消')
+            return
+        font_size, opacity, duration = 36, 85, 8
+        if style == '2':
+            def number(prompt, low, high, default):
+                while True:
+                    value = UI.ask(f'{prompt} [{low}–{high}，默认{default}]').strip() or str(default)
+                    if value.isdigit() and low <= int(value) <= high:
+                        return int(value)
+                    UI.note('请输入范围内的整数。', 'yellow')
+            font_size = number('字号', 12, 96, 36)
+            opacity = number('不透明度 %', 10, 100, 85)
+            duration = number('显示时间 秒', 3, 20, 8)
+        title = video['title'] + (f' P{page["page"]}' if len(video['pages']) > 1 else '')
+        def progress(done, total, count):
+            CURRENT_TASK.update(status='下载中', title=title, percent=100 * done / total,
+                                downloaded=f'{count} 条', total=f'{total} 段', format='XML + ASS',
+                                resolution='1920x1080 弹幕画布', notice='保留重复弹幕 · 不限制密度')
+            UI.header('Bilibili Danmaku', '分段获取弹幕 / Ctrl+C 取消')
+            UI.box('弹幕下载', [f'视频 : {title}', f'分段 : {done} / {total}',
+                                f'弹幕 : {count} 条', '原始分段保存在下载目录，可用于检查。'])
+            sys.stdout.flush()
+        messages, xml = client.download(video, page, settings['output'], progress)
+        ass = xml.with_suffix('.ass')
+        special = write_ass(messages, ass, font_size, opacity, duration)
+        CURRENT_TASK.update(status='完成', percent=100, path=str(ass), downloaded=f'{len(messages)} 条',
+                            total=f'{len(messages)} 条', notice='')
+        UI.header('Danmaku Completed', '弹幕已保存 / PotPlayer ASS')
+        lines = [f'弹幕数量 : {len(messages)} 条（不去重）', f'ASS : {ass}', f'XML : {xml}',
+                 '将 ASS 拖入 PotPlayer；启用 ASS/SSA 动画及字幕原始样式。']
+        if not messages:
+            lines.append(('接口未返回弹幕，导出的文件为空。', 'yellow'))
+        if special:
+            lines.append((f'{special} 条特殊弹幕已降级为普通滚动文本；原始内容保留。', 'yellow'))
+        UI.result(True, lines)
+    except KeyboardInterrupt:
+        CURRENT_TASK.update(status='已取消', notice='已获取的原始分段保留在下载目录')
+        UI.header('Danmaku Cancelled', '已取消弹幕下载')
+        UI.result(False, ['已取消。已获取的原始分段保留在下载目录。'])
+    except (ValueError, OSError) as exc:
+        CURRENT_TASK.update(status='失败', notice=str(exc))
+        UI.header('Danmaku Failed', '弹幕下载未完成')
+        UI.result(False, [str(exc), '未完整获取时不会将结果标记为完成；可稍后重试。'])
+    if sys.stdin.isatty():
+        UI.ask('Enter 返回')
+
+
 def _main_menu(settings):
     UI.header()
     UI.menu('✿  Main Menu  ✿', [
@@ -447,7 +518,8 @@ def _main_menu(settings):
         ('05', '设置', '下载路径 / Cookies / 主题'),
         ('06', '工具', '检查 Python / yt-dlp / FFmpeg'),
         ('07', '历史记录', '查看最近下载的任务'),
-        ('08', '关于蕾姆', '项目与运行环境')], '[00] 退出 · また、よろしくお願いします。')
+        ('08', '关于蕾姆', '项目与运行环境'),
+        ('09', '下载B站弹幕', '全时长分段 / PotPlayer ASS')], '[00] 退出 · また、よろしくお願いします。')
     UI.note('保存到：' + shorten(settings['output'], UI.width - 15), 'muted')
 
 
@@ -536,7 +608,7 @@ def interactive_loop(settings):
     while True:
         main_menu(settings)
         try:
-            choice = choose('请选择功能 [01–08]', {'0', '1', '2', '3', '4', '5', '6', '7', '8'})
+            choice = choose('请选择功能 [01–09]', {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9'})
             if choice == '0':
                 return
             if choice == '5':
@@ -562,6 +634,8 @@ def interactive_loop(settings):
                     run_command(build_command(settings, url, ['-F'], download=False))
                     if sys.stdin.isatty():
                         UI.ask('Enter 返回')
+                elif choice == '9':
+                    download_danmaku(settings, url)
                 else:
                     custom_download(settings, url)
         except (ValueError, OSError) as exc:
