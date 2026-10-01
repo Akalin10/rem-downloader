@@ -178,9 +178,10 @@ class BilibiliClient:
             url = 'https://api.bilibili.com/x/v2/dm/web/seg.so?' + urlencode(
                 {'type': 1, 'oid': page['cid'], 'pid': video['aid'], 'segment_index': index})
             raw, _ = self.request(url)
-            if raw.lstrip().startswith((b'{', b'<')):
-                raise ValueError(f'第 {index}/{count} 段返回错误数据；已获取的原始分段保留在下载目录')
-            parsed = parse_segment(raw)
+            try:
+                parsed = parse_segment(raw)
+            except ValueError as exc:
+                raise ValueError(f'第 {index}/{count} 段数据无效：{exc}；已获取的原始分段保留在下载目录') from exc
             (raw_dir / f'{index:05d}.bin').write_bytes(raw)
             messages.extend(parsed)
             if progress:

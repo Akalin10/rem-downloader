@@ -31,6 +31,17 @@ def segment(text='哈哈哈', mode=1):
 
 
 class DanmakuTests(unittest.TestCase):
+    def test_binary_length_byte_must_not_be_mistaken_for_json(self):
+        raw = next(segment('x' * n) for n in range(200)
+                   if segment('x' * n).lstrip().startswith(b'{'))
+        with tempfile.TemporaryDirectory() as directory:
+            client = BilibiliClient()
+            with patch.object(client, 'request', return_value=(raw, '')):
+                items, _ = client.download({'title': 'test', 'bvid': 'BV1fwYF62Eak',
+                                           'aid': 1, 'pages': [{}]},
+                                          {'cid': 2, 'duration': 60}, directory)
+            self.assertEqual(len(items), 1)
+
     def test_video_page_fallback_and_selected_part(self):
         import json
         client = BilibiliClient()
