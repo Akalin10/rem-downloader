@@ -33,6 +33,17 @@ def clip_line(line, width):
     return ''.join(result) + '\x1b[0m'
 
 
+def fit_line(line, width):
+    clean = SGR.sub('', line)
+    size = sum(0 if unicodedata.combining(ch) else
+               2 if unicodedata.east_asian_width(ch) in ('W', 'F') else 1 for ch in clean)
+    if size > width and clean.startswith(('╭', '│', '╰')):
+        closing = {'╭': '╮', '│': '│', '╰': '╯'}[clean[0]]
+        style = SGR.match(line)
+        return clip_line(line, max(0, width - 1)) + (style[0] if style else '') + closing + '\x1b[0m'
+    return clip_line(line, width)
+
+
 class Canvas:
     def __init__(self, output=None, dimensions=None):
         self.output = output or sys.stdout
@@ -197,11 +208,7 @@ class Canvas:
                                    if SGR.sub('', prompt) in SGR.sub('', row)), prompt_row)
         frame = []
         for line in visible:
-            clean = SGR.sub('', line)
-            if width < 84 and clean.startswith(('╭', '│', '╰')):
-                closing = {'╭': '╮', '│': '│', '╰': '╯'}[clean[0]]
-                line = clip_line(line, width - 1) + closing
-            frame.append(clip_line(line, width))
+            frame.append(fit_line(line, width))
         frame += ['\x1b[0m'] * (height - len(frame))
         commands = ['\x1b[?25l']
         if resized:

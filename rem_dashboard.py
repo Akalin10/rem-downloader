@@ -155,7 +155,7 @@ def layout(ui, draw_left, system, settings, task):
 
 def compose_page(left, width, height, color, system, settings, task):
     from rem_ui import ANSI
-    from rem_screen import clip_line
+    from rem_screen import clip_line, fit_line
     left_width = min(84, max(32, (width - 3) // 2)) if width >= 100 else width
     borders = [i for i, line in enumerate(left) if ANSI.sub('', line).startswith('╰')]
     if borders and borders[0] >= 18 and (height < len(left) or left_width < 76):
@@ -185,9 +185,7 @@ def compose_page(left, width, height, color, system, settings, task):
             print(ui.ink('╰' + '─' * (interior + 2) + '╯'))
         left = left[:2] + capture(header) + left[borders[0] + 1:]
     left = left[-height:]
-    left = [clip_line(line, left_width - 1) + ANSI.sub('', line)[-1]
-            if cells(line) > left_width and ANSI.sub('', line).startswith(('╭', '│', '╰'))
-            else clip_line(line, left_width) for line in left]
+    left = [fit_line(line, left_width) for line in left]
     if width < 100:
         ui = Terminal(color=color, width=width)
         compact = capture(lambda: ui.box('System Info / Current Task', [

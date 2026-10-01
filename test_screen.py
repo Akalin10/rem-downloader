@@ -8,6 +8,16 @@ from rem_screen import Canvas
 
 
 class ScreenTests(unittest.TestCase):
+    def test_clipped_right_border_keeps_original_color(self):
+        from rem_screen import fit_line
+        from rem_ui import Terminal, COLORS
+        from rem_dashboard import capture
+        for tone in ('cyan', 'green', 'red', 'pink'):
+            rows = capture(lambda: Terminal(color=True, width=84).box('Title', ['text'], tone))
+            for row, closing in zip(rows, ('╮', '│', '╯')):
+                clipped = fit_line(row, 60)
+                self.assertTrue(clipped.endswith(f'\x1b[38;2;{COLORS[tone]};48;2;4;14;22m{closing}\x1b[0m'))
+
     def test_compact_viewports_keep_portrait_dashboard_and_prompt(self):
         from rem_dashboard import compose_page, capture
         from rem_ui import Terminal, ANSI, cells
