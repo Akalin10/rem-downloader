@@ -442,7 +442,12 @@ def download_danmaku(settings, url):
     UI.header('Bilibili Danmaku', 'B站弹幕 / PotPlayer ASS')
     UI.note('保留全部返回内容与重复弹幕，不限制数量。')
     UI.note('只获取当前接口可见弹幕，不包含已删除或所有历史弹幕。', 'muted')
-    client = BilibiliClient(settings['cookies'])
+    cookie_path = settings['cookies']
+    site_cookies = ROOT / 'B_cookies.txt'
+    if site_cookies.is_file() and (not cookie_path or Path(cookie_path).expanduser().resolve() == (ROOT / 'cookies.txt').resolve()):
+        cookie_path = str(site_cookies)
+    UI.note('弹幕 Cookies：' + (Path(cookie_path).name if cookie_path else '未使用'), 'muted')
+    client = BilibiliClient(cookie_path)
     CURRENT_TASK.clear()
     CURRENT_TASK.update(status='解析中', title='正在获取B站视频信息', percent=0, format='XML + ASS')
     sys.stdout.flush()
