@@ -10,7 +10,6 @@ import unicodedata
 from urllib.parse import parse_qs, urlencode, urlparse
 from urllib.request import HTTPCookieProcessor, Request, build_opener
 from urllib.error import HTTPError, URLError
-import xml.etree.ElementTree as ET
 
 
 def read_varint(data, offset):
@@ -168,8 +167,6 @@ class BilibiliClient:
         title = video['title'] + (f' P{page["page"]} {page["part"]}' if len(video['pages']) > 1 else '')
         title = re.sub(r'[<>:"/\\|?*\x00-\x1f]', '_', title).strip(' .')[:100] or 'Bilibili'
         stem = f'{title} [{video["bvid"]}] [{page["cid"]}].danmaku'
-        raw_dir = destination / 'DANMAKU_RAW' / (stem + '.segments')
-        raw_dir.mkdir(parents=True, exist_ok=True)
         count = max(1, math.ceil(page['duration'] / 360))
         messages = []
         for index in range(1, count + 1):
@@ -181,29 +178,13 @@ class BilibiliClient:
             try:
                 parsed = parse_segment(raw)
             except ValueError as exc:
-                raise ValueError(f'第 {index}/{count} 段数据无效：{exc}；已获取的原始分段保留在下载目录') from exc
-            (raw_dir / f'{index:05d}.bin').write_bytes(raw)
+                raise ValueError(f'第 {index}/{count} 段数据无效：{exc}，未导出未完成弹幕') from exc
             messages.extend(parsed)
             if progress:
                 progress(index, count, len(messages))
             if index < count:
                 time.sleep(0.2)
-        xml_folder = destination / 'XML'
-        xml_folder.mkdir(parents=True, exist_ok=True)
-        xml = xml_folder / (stem + '.xml')
-        write_xml(messages, xml, page['cid'])
-        return messages, xml
-
-
-def write_xml(messages, path, cid):
-    root = ET.Element('i')
-    ET.SubElement(root, 'chatid').text = str(cid)
-    for message in messages:
-        attributes = [message['time'], message['mode'], message['size'], message['color'],
-                      message.get('ctime', 0), message.get('pool', 0), '0', message['id']]
-        ET.SubElement(root, 'd', p=','.join(map(str, attributes))).text = ''.join(
-            char for char in message['text'] if char in '\t\n\r' or ord(char) >= 32)
-    ET.ElementTree(root).write(path, encoding='utf-8', xml_declaration=True)
+        return messages, destination / 'ASS' / (stem + '.ass')
 
 
 def ass_time(seconds):

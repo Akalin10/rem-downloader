@@ -470,7 +470,7 @@ def download_danmaku(settings, url):
     UI.note('弹幕 Cookies：' + (Path(cookie_path).name if cookie_path else '未使用'), 'muted')
     client = BilibiliClient(cookie_path)
     CURRENT_TASK.clear()
-    CURRENT_TASK.update(status='解析中', title='正在获取B站视频信息', percent=0, format='XML + ASS')
+    CURRENT_TASK.update(status='解析中', title='正在获取B站视频信息', percent=0, format='ASS')
     sys.stdout.flush()
     try:
         video = client.video(url)
@@ -503,31 +503,30 @@ def download_danmaku(settings, url):
         title = video['title'] + (f' P{page["page"]}' if len(video['pages']) > 1 else '')
         def progress(done, total, count):
             CURRENT_TASK.update(status='下载中', title=title, percent=100 * done / total,
-                                downloaded=f'{count} 条', total=f'{total} 段', format='XML + ASS',
+                                downloaded=f'{count} 条', total=f'{total} 段', format='ASS',
                                 resolution='1920x1080 弹幕画布', notice='保留重复弹幕 · 不限制密度')
             UI.header('Bilibili Danmaku', '分段获取弹幕 / Ctrl+C 取消')
             UI.box('弹幕下载', [f'视频 : {title}', f'分段 : {done} / {total}',
-                                f'弹幕 : {count} 条', '原始分段保存在下载目录，可用于检查。'])
+                                f'弹幕 : {count} 条', '获取全部分段后仅导出 ASS。'])
             sys.stdout.flush()
-        messages, xml = client.download(video, page, settings['output'], progress)
+        messages, ass = client.download(video, page, settings['output'], progress)
         ass_folder = Path(settings['output']).expanduser() / 'ASS'
         ass_folder.mkdir(parents=True, exist_ok=True)
-        ass = ass_folder / xml.with_suffix('.ass').name
         special = write_ass(messages, ass, font_size, opacity, duration)
         CURRENT_TASK.update(status='完成', percent=100, path=str(ass), downloaded=f'{len(messages)} 条',
                             total=f'{len(messages)} 条', notice='')
         UI.header('Danmaku Completed', '弹幕已保存 / PotPlayer ASS')
-        lines = [f'弹幕数量 : {len(messages)} 条（不去重）', f'ASS : {ass}', f'XML : {xml}',
+        lines = [f'弹幕数量 : {len(messages)} 条（不去重）', f'ASS : {ass}',
                  '将 ASS 拖入 PotPlayer；启用 ASS/SSA 动画及字幕原始样式。']
         if not messages:
             lines.append(('接口未返回弹幕，导出的文件为空。', 'yellow'))
         if special:
-            lines.append((f'{special} 条特殊弹幕已降级为普通滚动文本；原始内容保留。', 'yellow'))
+            lines.append((f'{special} 条特殊弹幕已降级为普通滚动文本。', 'yellow'))
         UI.result(True, lines)
     except KeyboardInterrupt:
-        CURRENT_TASK.update(status='已取消', notice='已获取的原始分段保留在下载目录')
+        CURRENT_TASK.update(status='已取消', notice='未导出未完成弹幕')
         UI.header('Danmaku Cancelled', '已取消弹幕下载')
-        UI.result(False, ['已取消。已获取的原始分段保留在下载目录。'])
+        UI.result(False, ['已取消，未导出未完成弹幕。'])
     except (ValueError, OSError) as exc:
         CURRENT_TASK.update(status='失败', notice=str(exc))
         UI.header('Danmaku Failed', '弹幕下载未完成')

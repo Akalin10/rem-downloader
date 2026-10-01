@@ -23,12 +23,12 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\create_shortcut.ps1
 
 ## 功能
 
-设置的下载路径作为根目录。视频和音频完成合并或转码后，按最终扩展名归入 `MP4`、`WEBM`、`MP3`、`M4A` 等子目录；弹幕分别保存到 `ASS`、`XML` 和 `DANMAKU_RAW`。旧下载文件不会自动迁移。
+设置的下载路径作为根目录。视频和音频完成合并或转码后，按最终扩展名归入 `MP4`、`WEBM`、`MP3`、`M4A` 等子目录；弹幕仅保存到 `ASS`。旧下载文件不会自动迁移。
 
 - 下载视频、音频，查看格式或按格式 ID 下载。
 - 指定画质严格匹配，最高可用模式自动选择最佳格式。
 - 实时进度、历史记录、Cookies 和 FFmpeg 路径设置。
-- B站分段弹幕下载，导出 XML 和 PotPlayer 可加载的滚动 ASS。
+- B站分段弹幕下载，仅导出 PotPlayer 可加载的滚动 ASS。
 - Alternate Screen Buffer，原地更新，支持 Ctrl+C 取消和断点续传。
 
 详细操作见 [使用说明](使用说明.md)。正常运行只使用 Python 标准库，头像数据已包含在 `rem_portrait_rgb.json` 中，不需要原始图片或 Pillow。
@@ -56,4 +56,4 @@ python download_cli.py --check
 
 Cookies 按网址自动选择：YouTube 使用 `cookies.txt`，B站（含 b23.tv）使用 `B_cookies.txt`，其他网站不使用这两份凭据。设置中可分别修改或清空 YouTube 与 B站 Cookies 路径；视频、音频、格式查询和弹幕使用相同规则。页面弹幕统计与接口实际返回数量可能不同，导出文件保留本次接口返回的全部条目。
 
-将生成的 `.ass` 拖入 PotPlayer，启用 ASS/SSA 动画并使用字幕定义的原始样式。XML 与原始 `.segments` 数据同时保存在自定义下载目录，便于检查。B站风控拒绝请求时可稍后重试，或在设置中配置有效的 Netscape 格式 Cookies；这些文件不会上传 GitHub。
+将下载目录 `ASS` 文件夹中的 `.ass` 拖入 PotPlayer，启用 ASS/SSA 动画并使用字幕定义的原始样式。不会保存 XML 或原始分段文件。B站风控拒绝请求时可稍后重试，或在设置中配置有效的 Netscape 格式 Cookies；这些文件不会上传 GitHub。

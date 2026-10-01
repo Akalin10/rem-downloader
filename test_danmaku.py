@@ -2,9 +2,8 @@ import tempfile
 from pathlib import Path
 import unittest
 from unittest.mock import patch
-import xml.etree.ElementTree as ET
 
-from bilibili_danmaku import BilibiliClient, ass_time, parse_segment, write_ass, write_xml
+from bilibili_danmaku import BilibiliClient, ass_time, parse_segment, write_ass
 
 
 def varint(value):
@@ -69,15 +68,16 @@ class DanmakuTests(unittest.TestCase):
         import download_cli as cli
         with tempfile.TemporaryDirectory() as directory:
             video = {'title': 'test', 'pages': [{'page': 1, 'cid': 2, 'duration': 5}], 'selected_page': 1}
-            xml = Path(directory) / 'test.danmaku.xml'
+            ass = Path(directory) / 'ASS' / 'test.danmaku.ass'
             messages = parse_segment(segment() * 2)
             with patch('bilibili_danmaku.BilibiliClient') as factory, patch.object(cli, 'choose', return_value='1'), \
                     patch.object(cli.sys.stdin, 'isatty', return_value=False), contextlib.redirect_stdout(io.StringIO()) as output:
                 factory.return_value.video.return_value = video
-                factory.return_value.download.return_value = messages, xml
+                factory.return_value.download.return_value = messages, ass
                 cli.download_danmaku(dict(cli.DEFAULTS, output=directory, cookies=''), 'https://www.bilibili.com/video/BV1xx411c7mD')
             self.assertEqual(cli.CURRENT_TASK['status'], '完成')
-            self.assertEqual((Path(directory) / 'ASS' / xml.with_suffix('.ass').name).read_text(encoding='utf-8-sig').count('Dialogue:'), 2)
+            self.assertEqual(ass.read_text(encoding='utf-8-sig').count('Dialogue:'), 2)
+            self.assertEqual([p for p in Path(directory).rglob('*') if p.is_file()], [ass])
             self.assertIn('不去重', output.getvalue())
 
     def test_protobuf_unknown_fields_and_duplicates(self):
@@ -100,17 +100,20 @@ class DanmakuTests(unittest.TestCase):
                 urls.append(url)
                 return segment(), url
             with patch.object(client, 'request', side_effect=request), patch('bilibili_danmaku.time.sleep'):
-                messages, xml = client.download({'title': '../test', 'bvid': 'BV1xx411c7mD',
+                messages, ass = client.download({'title': '../test', 'bvid': 'BV1xx411c7mD',
                     'aid': 170001, 'pages': [{}]}, {'page': 1, 'cid': 42, 'duration': 721},
                     directory, lambda *values: progress.append(values))
             self.assertEqual(len(messages), 3)
-            self.assertEqual(len(ET.parse(xml).findall('d')), 3)
-            self.assertEqual(len(list(Path(directory).rglob('*.bin'))), 3)
+            self.assertFalse(list(Path(directory).rglob('*')))
             self.assertTrue(urls[-1].endswith('segment_index=3'))
             self.assertEqual(progress[-1], (3, 3, 3))
-            self.assertEqual(xml.parent, Path(directory) / 'XML')
+            self.assertEqual(ass.parent, Path(directory) / 'ASS')
+            ass.parent.mkdir()
+            write_ass(messages, ass)
+            self.assertEqual(ass.read_text(encoding='utf-8-sig').count('Dialogue:'), 3)
+            self.assertEqual([p for p in Path(directory).rglob('*') if p.is_file()], [ass])
 
-    def test_failed_segment_does_not_export_complete_xml(self):
+    def test_failed_segment_does_not_export_partial_files(self):
         with tempfile.TemporaryDirectory() as directory:
             client = BilibiliClient()
             with patch.object(client, 'request', side_effect=[(segment(), ''), ValueError('failed')]), \
@@ -118,8 +121,7 @@ class DanmakuTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     client.download({'title': 'test', 'bvid': 'BV1xx411c7mD', 'aid': 1, 'pages': [{}]},
                                     {'page': 1, 'cid': 2, 'duration': 400}, directory)
-            self.assertEqual(len(list(Path(directory).rglob('*.bin'))), 1)
-            self.assertFalse(list(Path(directory).glob('*.xml')))
+            self.assertFalse(list(Path(directory).rglob('*')))
 
     def test_ass_animation_modes_colors_and_injection_safety(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -140,9 +142,6 @@ class DanmakuTests(unittest.TestCase):
             target = Path(directory) / 'dense.ass'
             write_ass(items, target)
             self.assertEqual(target.read_text(encoding='utf-8-sig').count('Dialogue:'), 120)
-            xml = target.with_suffix('.xml')
-            write_xml(items, xml, 1)
-            self.assertEqual(len(ET.parse(xml).findall('d')), 120)
 
     def test_special_comments_preserved_as_readable_fallback(self):
         with tempfile.TemporaryDirectory() as directory:
