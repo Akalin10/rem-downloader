@@ -24,8 +24,8 @@ CURRENT_TASK = {}
 SYSTEM_CACHE = {}
 DEFAULTS = {
     'output': str(ROOT / 'downloads'),
-    'cookies': str(ROOT / 'cookies.txt') if (ROOT / 'cookies.txt').is_file() else '',
-    'bilibili_cookies': str(ROOT / 'B_cookies.txt') if (ROOT / 'B_cookies.txt').is_file() else '',
+    'cookies': str(ROOT / 'Cookies' / 'YouTube_cookies.txt') if (ROOT / 'Cookies' / 'YouTube_cookies.txt').is_file() else '',
+    'bilibili_cookies': str(ROOT / 'Cookies' / 'Bilibili_cookies.txt') if (ROOT / 'Cookies' / 'Bilibili_cookies.txt').is_file() else '',
     'backend': 'installed',
     'ffmpeg': '',
     'character': 'on',
@@ -38,6 +38,13 @@ def load_settings():
         values = json.loads(SETTINGS.read_text(encoding='utf-8'))
         if not isinstance(values, dict):
             raise ValueError('配置必须是对象')
+        for key, old_name, new_name in (('cookies', 'cookies.txt', 'YouTube_cookies.txt'),
+                                       ('bilibili_cookies', 'B_cookies.txt', 'Bilibili_cookies.txt')):
+            previous = values.get(key)
+            target = ROOT / 'Cookies' / new_name
+            if isinstance(previous, str) and previous and target.is_file():
+                if Path(previous).resolve() == (ROOT / old_name).resolve():
+                    values[key] = str(target)
         return {key: values.get(key, value) if isinstance(values.get(key, value), str)
                 else value for key, value in DEFAULTS.items()}
     except FileNotFoundError:

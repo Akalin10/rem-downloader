@@ -54,6 +54,6 @@ python download_cli.py --check
 
 不做去重、不限制条数、不进行内容过滤。密集弹幕允许重叠；字号、不透明度和显示时间可自定义。普通滚动、反向滚动、顶部和底部弹幕使用对应 ASS 动画；高级、代码及其他特殊弹幕降级为普通滚动文本，不能还原其全部特效。
 
-Cookies 按网址自动选择：YouTube 使用 `cookies.txt`，B站（含 b23.tv）使用 `B_cookies.txt`，其他网站不使用这两份凭据。设置中可分别修改或清空 YouTube 与 B站 Cookies 路径；视频、音频、格式查询和弹幕使用相同规则。页面弹幕统计与接口实际返回数量可能不同，导出文件保留本次接口返回的全部条目。
+Cookies 集中放在 `Cookies` 文件夹，按网址自动选择：YouTube 使用 `YouTube_cookies.txt`，B站（含 b23.tv）使用 `Bilibili_cookies.txt`，其他网站不使用这两份凭据。设置中可分别修改或清空 YouTube 与 B站 Cookies 路径；视频、音频、格式查询和弹幕使用相同规则。整个文件夹不会上传 GitHub。页面弹幕统计与接口实际返回数量可能不同，导出文件保留本次接口返回的全部条目。
 
 将下载目录 `ASS` 文件夹中的 `.ass` 拖入 PotPlayer，启用 ASS/SSA 动画并使用字幕定义的原始样式。不会保存 XML 或原始分段文件。B站风控拒绝请求时可稍后重试，或在设置中配置有效的 Netscape 格式 Cookies；这些文件不会上传 GitHub。
