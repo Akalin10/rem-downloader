@@ -140,6 +140,8 @@ def build_command(settings, url, options, download=True):
         node = shutil.which('node')
         if node:
             command += ['--no-js-runtimes', '--js-runtimes', f'node:{node}']
+        if download:
+            command += ['--http-chunk-size', '1M']
     if download:
         command += ['--concurrent-fragments', '4', '--socket-timeout', '20',
                     '--retries', '5', '--fragment-retries', '5',

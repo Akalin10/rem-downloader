@@ -19,11 +19,13 @@ class InterfaceTests(unittest.TestCase):
                 patch.object(cli.shutil, 'which', return_value='C:/node.exe'):
             command = cli.build_command(settings, 'https://youtu.be/example', ['-f', 'ba', '-x', '--audio-format', 'mp3'])
             self.assertIn('--no-plugin-dirs', command)
+            self.assertEqual(command[command.index('--http-chunk-size') + 1], '1M')
             self.assertEqual(command[command.index('--js-runtimes') + 1], 'node:C:/node.exe')
             self.assertEqual(command[command.index('--concurrent-fragments') + 1], '4')
             other = cli.build_command(settings, 'https://example.com/video', ['-f', 'ba'])
             self.assertNotIn('--no-plugin-dirs', other)
             self.assertNotIn('--js-runtimes', other)
+            self.assertNotIn('--http-chunk-size', other)
 
     def test_finished_audio_is_sorted_by_final_extension(self):
         with tempfile.TemporaryDirectory() as directory:
