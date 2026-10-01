@@ -183,15 +183,18 @@ class Canvas:
         width, height = max(1, width - 1), max(2, height)
         if prompt is not None:
             content += [prompt]
-        if len(content) > height - 1:
+        if not self.compose and len(content) > height - 1:
             borders = [i for i, line in enumerate(content) if SGR.sub('', line).startswith('╰')]
             if borders and borders[0] >= 18:
                 content = content[:3] + content[borders[0]:]
         
-        visible = content[-(height - 1):]
-        prompt_row = len(visible)
+        visible = content if self.compose else content[-(height - 1):]
+        prompt_row = min(len(visible), height - 1)
         if self.compose:
             visible = self.compose(visible, width, height - 1)
+            if prompt is not None:
+                prompt_row = next((i + 1 for i, row in enumerate(visible)
+                                   if SGR.sub('', prompt) in SGR.sub('', row)), prompt_row)
         frame = []
         for line in visible:
             clean = SGR.sub('', line)

@@ -154,17 +154,60 @@ def layout(ui, draw_left, system, settings, task):
 
 
 def compose_page(left, width, height, color, system, settings, task):
-
-    if width < 166:
-        return left
-    left_width = 84
+    from rem_ui import ANSI
+    from rem_screen import clip_line
+    left_width = min(84, max(32, (width - 3) // 2)) if width >= 100 else width
+    borders = [i for i, line in enumerate(left) if ANSI.sub('', line).startswith('╰')]
+    if borders and borders[0] >= 18 and (height < len(left) or left_width < 76):
+        from rem_portrait import rgb_sprite
+        sprite_width = min(24, max(10, left_width // 3))
+        grid = rgb_sprite(sprite_width)
+        art_height = min(10, max(3, height - (len(left) - borders[0]) - 4))
+        ui = Terminal(color=color, width=left_width)
+        def header():
+            rows = []
+            for y in range(art_height):
+                pixels = grid[min(len(grid) - 1, y * len(grid) // art_height)]
+                art = ''.join(f'\x1b[48;2;{r};{g};{b}m \x1b[0m' for r, g, b in pixels) if color else '▓' * sprite_width
+                caption = ['REM', 'Rem Terminal Assistant', 'レムにお任せください。'][y] if y < 3 else ''
+                rows.append(art + ui.ink('  ' + shorten(caption, left_width - sprite_width - 6), 'blue'))
+            interior = left_width - 4
+            print(ui.ink('╭─ REM ' + '─' * max(0, interior - 5) + '╮'))
+            for row in rows:
+                print(ui.ink('│ ') + row + ' ' * max(0, interior - cells(row)) + ui.ink(' │'))
+            print(ui.ink('╰' + '─' * (interior + 2) + '╯'))
+        left = left[:2] + capture(header) + left[borders[0] + 1:]
+    left = left[-height:]
+    left = [clip_line(line, left_width - 1) + ANSI.sub('', line)[-1]
+            if cells(line) > left_width and ANSI.sub('', line).startswith(('╭', '│', '╰'))
+            else clip_line(line, left_width) for line in left]
+    if width < 100:
+        ui = Terminal(color=color, width=width)
+        compact = capture(lambda: ui.box('System Info / Current Task', [
+            f'Python {system.get("python", "—")} · yt-dlp {system.get("yt-dlp", "—")}',
+            f'{task.get("status", "Ready")}  {task.get("percent", 0):.1f}%',
+            f'保存 : {task.get("path", settings["output"])}']))
+        if len(left) + len(compact) <= height:
+            return left[:-1] + compact + left[-1:]
+        return left[:max(0, height - len(compact) - 1)] + compact + left[-1:]
     right_width = min(left_width, width - left_width - 3)
     
-    from rem_ui import ANSI
     last_border = max((index for index, line in enumerate(left)
                        if ANSI.sub('', line).startswith('╰')), default=30)
-    right = ['', ''] + render_dashboard(right_width, color, system, settings, task,
-                                       height=min(last_border - 1, height - 2))
-    from rem_screen import clip_line
+    if right_width < 70 or height < 31:
+        ui = Terminal(color=color, width=right_width)
+        right = ['', ''] + capture(lambda: ui.box('System Info / 系统信息', [
+            f'Python : {system.get("python", "—")}',
+            f'yt-dlp : {system.get("yt-dlp", "—")}',
+            f'Path : {settings["output"]}']))
+        right += capture(lambda: ui.box('Rem Status / 蕾姆状态', [('応援 100% · 癒し 100% · 元気 90%', 'pink')]))
+        right += capture(lambda: ui.box('Current Task / 下载任务', [
+            task.get('status', '空闲 / Idle'), task.get('title', '等待下载'),
+            (f'{bar(task.get("percent", 0), max(4, right_width - 15))} {task.get("percent", 0):.1f}%', 'blue'),
+            f'速度 : {task.get("speed", "—")} ETA : {task.get("eta", "—")}',
+            f'保存 : {task.get("path", settings["output"])}']))
+    else:
+        right = ['', ''] + render_dashboard(right_width, color, system, settings, task,
+                                           height=min(last_border - 1, height - 2))
     return combine([clip_line(line, left_width) for line in left], right,
                    left_width, 3)[:height]

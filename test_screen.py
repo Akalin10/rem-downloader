@@ -8,10 +8,28 @@ from rem_screen import Canvas
 
 
 class ScreenTests(unittest.TestCase):
+    def test_compact_viewports_keep_portrait_dashboard_and_prompt(self):
+        from rem_dashboard import compose_page, capture
+        from rem_ui import Terminal, ANSI, cells
+        ui = Terminal(color=True, width=84)
+        left = capture(lambda: (ui.header(), ui.menu('Main Menu',
+                       [(str(i), '下载视频', '选择画质') for i in range(8)])))
+        left.append('选择 > 4')
+        for width, height in ((150, 34), (120, 30), (100, 28), (80, 30)):
+            with self.subTest(width=width, height=height):
+                frame = compose_page(left, width, height, True, {}, {'output': '.'}, {})
+                text = '\n'.join(ANSI.sub('', row) for row in frame)
+                self.assertIn('REM', text)
+                self.assertIn('System Info', text)
+                self.assertIn('Current Task', text)
+                self.assertIn('选择 > 4', text)
+                self.assertTrue(all(cells(row) <= width for row in frame))
+                self.assertLessEqual(len(frame), height)
+
     def test_resize_repaints_without_input_and_restores_full_page(self):
         from rem_ui import Terminal, ANSI, cells
         output = io.StringIO()
-        with patch('rem_screen.os.name', 'posix'):
+        with patch('rem_portrait.Path', type(__import__('pathlib').Path.cwd())), patch('rem_screen.os.name', 'posix'):
             with Canvas(output=output, dimensions=(196, 50)) as screen:
                 Terminal(color=False, width=84).header()
                 Terminal(color=False, width=84).menu('Quality', [('01', '1080p', '')])
