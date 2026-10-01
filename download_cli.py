@@ -136,10 +136,14 @@ def build_command(settings, url, options, download=True):
     command = backend_command(settings) + common_args(settings, url)
     host = (urlparse(url).hostname or '').lower()
     if host == 'youtu.be' or host == 'youtube.com' or host.endswith('.youtube.com'):
-        
-        command += ['--extractor-args', 'youtube:player_client=default,web_safari']
+        command += ['--no-plugin-dirs', '--extractor-args', 'youtube:player_client=default,web_safari']
+        node = shutil.which('node')
+        if node:
+            command += ['--no-js-runtimes', '--js-runtimes', f'node:{node}']
     if download:
-        command += ['--newline', '--progress', '-P', settings['output'],
+        command += ['--concurrent-fragments', '4', '--socket-timeout', '20',
+                    '--retries', '5', '--fragment-retries', '5',
+                    '--newline', '--progress', '-P', settings['output'],
                     '-o', '%(title)s [%(id)s] [%(height|audio)s].%(ext)s',
                     '--print', 'before_dl:REM_META:{"title":%(title)j,"resolution":%(resolution)j,"format":%(format)j,"vcodec":%(vcodec)j,"acodec":%(acodec)j}',
                     '--print', 'after_move:REM_FILE:%(filepath)j',
@@ -168,6 +172,10 @@ def record_task(metadata, path, code, elapsed):
 
 
 def failure_advice(log):
+    if 'bgutil' in log or '4416' in log:
+        return '本地 PO Token 插件服务不可用；请重启使用新版程序，YouTube 下载已隔离第三方插件。'
+    if 'ffmpeg' in log.lower() and ('not found' in log.lower() or 'not installed' in log.lower()):
+        return '音频转码需要 FFmpeg，请在设置中配置有效路径，或选择最佳原始音频。'
     if 'Requested format is not available' in log:
         return '未获取到指定清晰度；查看可用格式后重选，程序不会自动降级。'
     if 'not a bot' in log or 'Sign in' in log:

@@ -13,6 +13,18 @@ from rem_dashboard import layout, terminal_columns
 
 
 class InterfaceTests(unittest.TestCase):
+    def test_youtube_download_isolated_from_plugins_and_uses_fragment_concurrency(self):
+        settings = dict(cli.DEFAULTS, cookies='')
+        with patch.object(cli, 'backend_command', return_value=['yt-dlp']), \
+                patch.object(cli.shutil, 'which', return_value='C:/node.exe'):
+            command = cli.build_command(settings, 'https://youtu.be/example', ['-f', 'ba', '-x', '--audio-format', 'mp3'])
+            self.assertIn('--no-plugin-dirs', command)
+            self.assertEqual(command[command.index('--js-runtimes') + 1], 'node:C:/node.exe')
+            self.assertEqual(command[command.index('--concurrent-fragments') + 1], '4')
+            other = cli.build_command(settings, 'https://example.com/video', ['-f', 'ba'])
+            self.assertNotIn('--no-plugin-dirs', other)
+            self.assertNotIn('--js-runtimes', other)
+
     def test_finished_audio_is_sorted_by_final_extension(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
