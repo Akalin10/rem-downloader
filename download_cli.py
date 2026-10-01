@@ -172,10 +172,9 @@ def run_command(command):
             f'实际画质 : {CURRENT_TASK.get("resolution", "—")}',
             f'格式     : {CURRENT_TASK.get("format", "—")}',
             ('Ctrl+C 取消 · 支持断点续传', 'muted')], width=84)
-        UI.progress(CURRENT_TASK.get('percent', 0), CURRENT_TASK.get('speed', ''),
-                    CURRENT_TASK.get('eta', ''), CURRENT_TASK.get('total', ''))
         if CURRENT_TASK.get('notice'):
             UI.note(shorten(CURRENT_TASK['notice'], 76), 'muted')
+        ACTIVE_SCREEN.flush()
     downloading = any('REM_FILE:' in arg for arg in command)
     if load_settings()['command'] == 'on':
         UI.box('Command / 执行命令', [subprocess.list2cmdline(command)])
