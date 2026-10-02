@@ -214,7 +214,7 @@ def failure_advice(log):
     return '查看上方错误详情，检查网络、Cookies 与 FFmpeg 配置。'
 
 
-def run_command(command):
+def run_command(command, browser_retry=False):
     def refresh_download():
         from rem_screen import ACTIVE_SCREEN
         if not ACTIVE_SCREEN:
@@ -340,7 +340,36 @@ def run_command(command):
                 retry = [arg for arg in command if arg != '--no-cookies']
                 position = retry.index('--') if '--' in retry else len(retry) - 1
                 retry[position:position] = ['--cookies', cookie_path]
-                return run_command(retry)
+                return run_command(retry, browser_retry=browser_retry)
+    if downloading and code not in (0, 130) and not saved and not browser_retry:
+        from douyin_browser import douyin_url, media_command
+        if douyin_url(command[-1]):
+            CURRENT_TASK.update(status='解析中', notice='请在浏览器完成验证并播放视频')
+            UI.header('Douyin Browser', '浏览器播放获取地址 / 抖音下载兜底')
+            UI.box('浏览器验证', ['请完成登录或验证码，并播放目标视频。',
+                                    '获取地址后自动继续下载；Ctrl+C 可取消。'])
+            UI.note('普通下载失败，打开抖音浏览器。请完成登录/验证码并播放视频，最长等待 3 分钟。', 'yellow')
+            sys.stdout.flush()
+            worker = None
+            try:
+                worker = subprocess.Popen([sys.executable, '-X', 'utf8', str(ROOT / 'douyin_browser.py'), command[-1]],
+                                          stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                          text=True, encoding='utf-8', errors='replace')
+                result, _ = worker.communicate(timeout=240)
+                media = json.loads(result)
+                if worker.returncode or media.get('error'):
+                    raise ValueError(media.get('error', '浏览器未能获取视频'))
+                return run_command(media_command(command, media), browser_retry=True)
+            except KeyboardInterrupt:
+                if worker is not None:
+                    worker.kill()
+                    worker.communicate()
+                code = 130
+            except (OSError, ValueError, subprocess.TimeoutExpired) as exc:
+                if worker is not None and worker.poll() is None:
+                    worker.kill()
+                    worker.communicate()
+                logs.append('浏览器兜底失败：' + str(exc))
     if downloading:
         CURRENT_TASK.update(status='完成' if code == 0 else '已取消' if code == 130 else '失败',
                             path=saved or load_settings()['output'])

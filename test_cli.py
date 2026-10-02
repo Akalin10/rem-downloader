@@ -13,6 +13,22 @@ from rem_dashboard import layout, terminal_columns
 
 
 class InterfaceTests(unittest.TestCase):
+    def test_browser_media_command_does_not_send_site_cookie_to_cdn(self):
+        from douyin_browser import media_command, douyin_url
+        original = ['yt-dlp', '--cookies', 'private.txt', '-f', 'bv[height=1080]+ba/b[height=1080]',
+                    '-o', 'old.%(ext)s', '--', 'https://www.douyin.com/video/123']
+        media = {'url': 'https://cdn.example/video.mp4', 'height': 1080,
+                 'title': 'title / 100%', 'referer': 'https://www.douyin.com/', 'user_agent': 'Browser'}
+        command = media_command(original, media)
+        self.assertNotIn('--cookies', command)
+        self.assertIn('--no-cookies', command)
+        self.assertEqual(command[-1], media['url'])
+        self.assertEqual(command[command.index('-f') + 1], 'best')
+        with self.assertRaises(ValueError):
+            media_command(original, dict(media, height=720))
+        self.assertTrue(douyin_url('https://v.douyin.com/abc'))
+        self.assertFalse(douyin_url('https://douyin.com.evil.example/video'))
+
     def test_failed_anonymous_download_retries_cookie_once(self):
         with tempfile.TemporaryDirectory() as directory:
             cookie = Path(directory) / 'youtube_cookies.txt'

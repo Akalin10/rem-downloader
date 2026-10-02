@@ -29,6 +29,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\create_shortcut.ps1
 - 指定画质严格匹配，最高可用模式自动选择最佳格式。
 - 实时进度、历史记录、Cookies 和 FFmpeg 路径设置。
 - B站分段弹幕下载，仅导出 PotPlayer 可加载的滚动 ASS。
+- 抖音普通下载失败后打开 Chrome/Edge，通过真实播放获取媒体地址；登录和验证码由用户完成。
 - Alternate Screen Buffer，原地更新，支持 Ctrl+C 取消和断点续传。
 
 详细操作见 [使用说明](使用说明.md)。正常运行只使用 Python 标准库，头像数据已包含在 `rem_portrait_rgb.json` 中，不需要原始图片或 Pillow。

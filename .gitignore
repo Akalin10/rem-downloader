@@ -1,5 +1,6 @@
 cookies*.txt
 /Cookies/
+/browser_profiles/
 *cookies*.txt
 *.cookies
 .env
