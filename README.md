@@ -57,6 +57,6 @@ python download_cli.py --check
 
 启动时会根据 `cookie_platforms.json` 中的 yt-dlp 网站识别规则，在 `Cookies` 文件夹创建 `<平台>_cookies.txt` 空文件，例如 `youtube_cookies.txt`、`bilibili_cookies.txt`、`twitter_cookies.txt`。请填入对应网站导出的 Netscape 格式 Cookies；已有文件不会覆盖。
 
-视频、音频和格式查询优先不使用 Cookies，失败后才使用对应平台的非空文件重试一次；取消不会触发重试。B站弹幕也采用无 Cookie 优先策略。YouTube 与B站仍可在设置中指定其他 Cookie 路径。没有对应规则或文件为空时不会使用其他网站的凭据。整个 `Cookies` 文件夹不会上传 GitHub。页面弹幕统计与接口实际返回数量可能不同，导出文件保留本次接口返回的全部条目。
+视频、音频和格式查询优先使用对应平台的非空 Cookie 文件，失败后无 Cookie 重试一次；取消不会触发重试。B站弹幕也采用 Cookie 优先策略。YouTube 与B站仍可在设置中指定其他 Cookie 路径。没有对应规则或文件为空时不会使用其他网站的凭据。整个 `Cookies` 文件夹不会上传 GitHub。页面弹幕统计与接口实际返回数量可能不同，导出文件保留本次接口返回的全部条目。
 
 将下载目录 `ASS` 文件夹中的 `.ass` 拖入 PotPlayer，启用 ASS/SSA 动画并使用字幕定义的原始样式。不会保存 XML 或原始分段文件。B站风控拒绝请求时可稍后重试，或在设置中配置有效的 Netscape 格式 Cookies；这些文件不会上传 GitHub。

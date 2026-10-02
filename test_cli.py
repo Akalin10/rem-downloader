@@ -71,7 +71,7 @@ class InterfaceTests(unittest.TestCase):
         self.assertTrue(douyin_url('https://v.douyin.com/abc'))
         self.assertFalse(douyin_url('https://douyin.com.evil.example/video'))
 
-    def test_failed_anonymous_download_retries_cookie_once(self):
+    def test_failed_cookie_download_retries_anonymously_once(self):
         with tempfile.TemporaryDirectory() as directory:
             cookie = Path(directory) / 'youtube_cookies.txt'
             cookie.write_text('# Netscape HTTP Cookie File\n.youtube.com\tTRUE\t/\tTRUE\t0\tsession\ttest\n', encoding='utf-8')
@@ -85,12 +85,12 @@ class InterfaceTests(unittest.TestCase):
             with patch.object(cli, 'load_settings', return_value=settings), \
                     patch.object(cli.subprocess, 'Popen', side_effect=[Process(1), Process(1)]) as start, \
                     contextlib.redirect_stdout(io.StringIO()):
-                command = ['yt-dlp', '--no-cookies', '--simulate', '--', 'https://youtu.be/test']
+                command = ['yt-dlp', '--cookies', str(cookie), '--simulate', '--', 'https://youtu.be/test']
                 self.assertEqual(cli.run_command(command), 1)
             self.assertEqual(start.call_count, 2)
             retry = start.call_args_list[1].args[0]
-            self.assertNotIn('--no-cookies', retry)
-            self.assertEqual(retry[retry.index('--cookies') + 1], str(cookie))
+            self.assertIn('--no-cookies', retry)
+            self.assertNotIn('--cookies', retry)
 
     def test_cookie_templates_are_empty_and_preserve_existing_credentials(self):
         with tempfile.TemporaryDirectory() as directory:

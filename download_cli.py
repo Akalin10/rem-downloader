@@ -127,6 +127,10 @@ def cookies_for_url(settings, url):
 
 def common_args(settings, url=''):
     args = ['--no-playlist', '--encoding', 'utf-8', '--no-cookies', '--no-cookies-from-browser']
+    cookie = cookies_for_url(settings, url)
+    if cookie_available(cookie):
+        args.remove('--no-cookies')
+        args += ['--cookies', cookie]
     if settings['ffmpeg']:
         args += ['--ffmpeg-location', settings['ffmpeg']]
     return args
@@ -230,13 +234,13 @@ def show_formats(command):
             return 1
         if result.returncode == 0:
             break
-        cookie = cookies_for_url(load_settings(), command[-1])
-        if attempt or '--cookies' in query or not cookie_available(cookie):
+        if attempt or '--cookies' not in query:
             UI.result(False, [shorten(result.stderr.strip().splitlines()[-1] if result.stderr.strip() else '格式查询失败', 76)])
             return 1
-        query = [arg for arg in query if arg != '--no-cookies']
+        index = query.index('--cookies')
+        del query[index:index + 2]
         position = query.index('--')
-        query[position:position] = ['--cookies', cookie]
+        query[position:position] = ['--no-cookies']
     try:
         data = json.loads(result.stdout)
     except ValueError:
@@ -261,7 +265,7 @@ def show_formats(command):
         page = (page + (1 if action == '1' else -1)) % pages
 
 
-def run_command(command, browser_retry=False):
+def run_command(command, browser_retry=False, cookie_retry=False):
     if '-F' in command:
         return show_formats(command)
     def refresh_download():
@@ -384,14 +388,14 @@ def run_command(command, browser_retry=False):
         code = 1
         logs.append(f'无法启动下载器：{exc}')
     elapsed = time.monotonic() - started
-    if code not in (0, 130) and '--cookies' not in command and not saved:
-        cookie_path = cookies_for_url(load_settings(), command[-1]) if command else ''
-        if cookie_available(cookie_path):
-                UI.note('无 Cookie 尝试失败，使用 ' + Path(cookie_path).name + ' 重试一次。', 'yellow')
-                retry = [arg for arg in command if arg != '--no-cookies']
-                position = retry.index('--') if '--' in retry else len(retry) - 1
-                retry[position:position] = ['--cookies', cookie_path]
-                return run_command(retry, browser_retry=browser_retry)
+    if code not in (0, 130) and '--cookies' in command and not saved and not cookie_retry:
+        UI.note('Cookie 尝试失败，改用无 Cookie 重试一次。', 'yellow')
+        retry = list(command)
+        index = retry.index('--cookies')
+        del retry[index:index + 2]
+        position = retry.index('--') if '--' in retry else len(retry) - 1
+        retry[position:position] = ['--no-cookies']
+        return run_command(retry, browser_retry=browser_retry, cookie_retry=True)
     if downloading and code not in (0, 130) and not saved and not browser_retry:
         from douyin_browser import douyin_url, media_command
         if douyin_url(command[-1]):
@@ -595,18 +599,18 @@ def download_danmaku(settings, url):
     from bilibili_danmaku import BilibiliClient, write_ass
     UI.header('Bilibili Danmaku', 'B站弹幕 / PotPlayer ASS')
     cookie_path = cookies_for_url(settings, url)
-    client = BilibiliClient('')
-    using_cookie = False
+    using_cookie = cookie_available(cookie_path)
+    client = BilibiliClient(cookie_path if using_cookie else '')
     def request(action):
         nonlocal client, using_cookie
         try:
             return action(client)
         except (ValueError, OSError):
-            if using_cookie or not cookie_available(cookie_path):
+            if not using_cookie:
                 raise
-            using_cookie = True
-            client = BilibiliClient(cookie_path)
-            UI.note('使用 ' + Path(cookie_path).name + ' 重试。', 'yellow')
+            using_cookie = False
+            client = BilibiliClient('')
+            UI.note('Cookie 尝试失败，改用无 Cookie 重试。', 'yellow')
             return action(client)
     CURRENT_TASK.clear()
     CURRENT_TASK.update(status='解析中', title='正在获取B站视频信息', percent=0, format='ASS')
@@ -649,16 +653,6 @@ def download_danmaku(settings, url):
                                 f'弹幕 : {count} 条', '获取全部分段后仅导出 ASS。'])
             sys.stdout.flush()
         messages, ass = request(lambda current: current.download(video, page, settings['output'], progress))
-        reported = video.get('stat', {}).get('danmaku', 0)
-        if (not using_cookie and cookie_available(cookie_path) and len(video['pages']) == 1
-                and isinstance(reported, int) and len(messages) < reported):
-            try:
-                authenticated = BilibiliClient(cookie_path)
-                extra, extra_ass = authenticated.download(video, page, settings['output'], progress)
-                if len(extra) > len(messages):
-                    messages, ass = extra, extra_ass
-            except (ValueError, OSError):
-                pass
         ass_folder = Path(settings['output']).expanduser() / 'ASS'
         ass_folder.mkdir(parents=True, exist_ok=True)
         special = write_ass(messages, ass, font_size, opacity, duration)
