@@ -24,8 +24,8 @@ CURRENT_TASK = {}
 SYSTEM_CACHE = {}
 DEFAULTS = {
     'output': str(ROOT / 'downloads'),
-    'cookies': str(ROOT / 'Cookies' / 'YouTube_cookies.txt') if (ROOT / 'Cookies' / 'YouTube_cookies.txt').is_file() else '',
-    'bilibili_cookies': str(ROOT / 'Cookies' / 'Bilibili_cookies.txt') if (ROOT / 'Cookies' / 'Bilibili_cookies.txt').is_file() else '',
+    'cookies': str(ROOT / 'Cookies' / 'youtube_cookies.txt'),
+    'bilibili_cookies': str(ROOT / 'Cookies' / 'bilibili_cookies.txt'),
     'backend': 'installed',
     'ffmpeg': '',
     'character': 'on',
@@ -38,8 +38,8 @@ def load_settings():
         values = json.loads(SETTINGS.read_text(encoding='utf-8'))
         if not isinstance(values, dict):
             raise ValueError('配置必须是对象')
-        for key, old_name, new_name in (('cookies', 'cookies.txt', 'YouTube_cookies.txt'),
-                                       ('bilibili_cookies', 'B_cookies.txt', 'Bilibili_cookies.txt')):
+        for key, old_name, new_name in (('cookies', 'cookies.txt', 'youtube_cookies.txt'),
+                                       ('bilibili_cookies', 'B_cookies.txt', 'bilibili_cookies.txt')):
             previous = values.get(key)
             target = ROOT / 'Cookies' / new_name
             if isinstance(previous, str) and previous and target.is_file():
@@ -111,20 +111,43 @@ def cookies_for_url(settings, url):
         return settings.get('cookies', '')
     if host in ('bilibili.com', 'b23.tv') or host.endswith('.bilibili.com'):
         return settings.get('bilibili_cookies', DEFAULTS['bilibili_cookies'])
+    try:
+        platforms = json.loads((ROOT / 'cookie_platforms.json').read_text(encoding='utf-8'))
+        for entry in platforms:
+            if re.match(entry['pattern'], url):
+                name = entry['platform']
+                if re.fullmatch(r'[a-z0-9_]+', name):
+                    return str(ROOT / 'Cookies' / f'{name}_cookies.txt')
+    except (OSError, ValueError, KeyError, re.error):
+        pass
     return ''
 
 
 def common_args(settings, url=''):
-    args = ['--no-playlist', '--encoding', 'utf-8']
-    selected_cookies = cookies_for_url(settings, url)
-    if selected_cookies:
-        cookie_path = Path(selected_cookies).expanduser()
-        if not cookie_path.is_file():
-            raise ValueError(f'Cookies 文件不存在：{cookie_path}；可在设置中清空路径。')
-        args += ['--cookies', str(cookie_path)]
+    args = ['--no-playlist', '--encoding', 'utf-8', '--no-cookies', '--no-cookies-from-browser']
     if settings['ffmpeg']:
         args += ['--ffmpeg-location', settings['ffmpeg']]
     return args
+
+
+def cookie_available(path):
+    try:
+        content = Path(path).read_text(encoding='utf-8-sig', errors='replace') if path else ''
+        return any(line.strip() and (not line.startswith('#') or line.startswith('#HttpOnly_'))
+                   for line in content.splitlines())
+    except OSError:
+        return False
+
+
+def prepare_cookie_files():
+    folder = ROOT / 'Cookies'
+    folder.mkdir(exist_ok=True)
+    platforms = json.loads((ROOT / 'cookie_platforms.json').read_text(encoding='utf-8'))
+    for name in {entry['platform'] for entry in platforms}:
+        if re.fullmatch(r'[a-z0-9_]+', name):
+            path = folder / f'{name}_cookies.txt'
+            if not path.exists():
+                path.touch()
 
 
 def video_format(height, merge):
@@ -308,6 +331,14 @@ def run_command(command):
         code = 1
         logs.append(f'无法启动下载器：{exc}')
     elapsed = time.monotonic() - started
+    if code not in (0, 130) and '--cookies' not in command and not saved:
+        cookie_path = cookies_for_url(load_settings(), command[-1]) if command else ''
+        if cookie_available(cookie_path):
+                UI.note('无 Cookie 尝试失败，使用 ' + Path(cookie_path).name + ' 重试一次。', 'yellow')
+                retry = [arg for arg in command if arg != '--no-cookies']
+                position = retry.index('--') if '--' in retry else len(retry) - 1
+                retry[position:position] = ['--cookies', cookie_path]
+                return run_command(retry)
     if downloading:
         CURRENT_TASK.update(status='完成' if code == 0 else '已取消' if code == 130 else '失败',
                             path=saved or load_settings()['output'])
@@ -484,13 +515,25 @@ def download_danmaku(settings, url):
     UI.note('保留全部返回内容与重复弹幕，不限制数量。')
     UI.note('只获取当前接口可见弹幕，不包含已删除或所有历史弹幕。', 'muted')
     cookie_path = cookies_for_url(settings, url)
-    UI.note('弹幕 Cookies：' + (Path(cookie_path).name if cookie_path else '未使用'), 'muted')
-    client = BilibiliClient(cookie_path)
+    UI.note('优先无 Cookie 获取弹幕；失败后尝试对应平台 Cookie。', 'muted')
+    client = BilibiliClient('')
+    using_cookie = False
+    def request(action):
+        nonlocal client, using_cookie
+        try:
+            return action(client)
+        except (ValueError, OSError):
+            if using_cookie or not cookie_available(cookie_path):
+                raise
+            using_cookie = True
+            client = BilibiliClient(cookie_path)
+            UI.note('使用 ' + Path(cookie_path).name + ' 重试。', 'yellow')
+            return action(client)
     CURRENT_TASK.clear()
     CURRENT_TASK.update(status='解析中', title='正在获取B站视频信息', percent=0, format='ASS')
     sys.stdout.flush()
     try:
-        video = client.video(url)
+        video = request(lambda current: current.video(url))
         page = video['pages'][video['selected_page'] - 1]
         if len(video['pages']) > 1:
             UI.box('视频分P', [f'{part["page"]:02}  {part["part"]}' for part in video['pages']])
@@ -526,7 +569,7 @@ def download_danmaku(settings, url):
             UI.box('弹幕下载', [f'视频 : {title}', f'分段 : {done} / {total}',
                                 f'弹幕 : {count} 条', '获取全部分段后仅导出 ASS。'])
             sys.stdout.flush()
-        messages, ass = client.download(video, page, settings['output'], progress)
+        messages, ass = request(lambda current: current.download(video, page, settings['output'], progress))
         ass_folder = Path(settings['output']).expanduser() / 'ASS'
         ass_folder.mkdir(parents=True, exist_ok=True)
         special = write_ass(messages, ass, font_size, opacity, duration)
@@ -622,6 +665,7 @@ def diagnose(settings):
 
 
 def main():
+    prepare_cookie_files()
     parser = argparse.ArgumentParser(description='中文 yt-dlp 交互式下载菜单')
     parser.add_argument('--check', action='store_true', help='检查运行环境后退出')
     parser.add_argument('--preview', action='store_true', help='展示主题预览，不联网或下载')

@@ -13,6 +13,42 @@ from rem_dashboard import layout, terminal_columns
 
 
 class InterfaceTests(unittest.TestCase):
+    def test_failed_anonymous_download_retries_cookie_once(self):
+        with tempfile.TemporaryDirectory() as directory:
+            cookie = Path(directory) / 'youtube_cookies.txt'
+            cookie.write_text('# Netscape HTTP Cookie File\n.youtube.com\tTRUE\t/\tTRUE\t0\tsession\ttest\n', encoding='utf-8')
+            settings = dict(cli.DEFAULTS, cookies=str(cookie))
+            class Process:
+                def __init__(self, code):
+                    self.stdout = io.StringIO('ERROR: Sign in\n' if code else '')
+                    self.code = code
+                def wait(self):
+                    return self.code
+            with patch.object(cli, 'load_settings', return_value=settings), \
+                    patch.object(cli.subprocess, 'Popen', side_effect=[Process(1), Process(1)]) as start, \
+                    contextlib.redirect_stdout(io.StringIO()):
+                command = ['yt-dlp', '--no-cookies', '-F', '--', 'https://youtu.be/test']
+                self.assertEqual(cli.run_command(command), 1)
+            self.assertEqual(start.call_count, 2)
+            retry = start.call_args_list[1].args[0]
+            self.assertNotIn('--no-cookies', retry)
+            self.assertEqual(retry[retry.index('--cookies') + 1], str(cookie))
+
+    def test_cookie_templates_are_empty_and_preserve_existing_credentials(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'cookie_platforms.json').write_text(json.dumps([
+                {'platform': 'youtube', 'pattern': 'https://youtube.com/'},
+                {'platform': 'vimeo', 'pattern': 'https://vimeo.com/'}]), encoding='utf-8')
+            with patch.object(cli, 'ROOT', root):
+                cli.prepare_cookie_files()
+                cookie = root / 'Cookies' / 'youtube_cookies.txt'
+                self.assertFalse(cli.cookie_available(str(cookie)))
+                cookie.write_text('existing', encoding='utf-8')
+                cli.prepare_cookie_files()
+                self.assertEqual(cookie.read_text(), 'existing')
+                self.assertEqual(cli.cookies_for_url({}, 'https://vimeo.com/123'), str(root / 'Cookies' / 'vimeo_cookies.txt'))
+
     def test_youtube_download_isolated_from_plugins_and_uses_fragment_concurrency(self):
         settings = dict(cli.DEFAULTS, cookies='')
         with patch.object(cli, 'backend_command', return_value=['yt-dlp']), \
@@ -63,10 +99,8 @@ class InterfaceTests(unittest.TestCase):
                     self.assertEqual(cli.cookies_for_url(settings, url), expected)
                     for options in (['-F'], ['-f', 'best'], ['-x']):
                         command = cli.build_command(settings, url, options)
-                        if expected:
-                            self.assertEqual(command[command.index('--cookies') + 1], expected)
-                        else:
-                            self.assertNotIn('--cookies', command)
+                        self.assertNotIn('--cookies', command)
+                        self.assertIn('--no-cookies', command)
             settings['bilibili_cookies'] = ''
             self.assertEqual(cli.cookies_for_url(settings, 'https://b23.tv/abc'), '')
 
