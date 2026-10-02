@@ -111,6 +111,8 @@ def cookies_for_url(settings, url):
         return settings.get('cookies', '')
     if host in ('bilibili.com', 'b23.tv') or host.endswith('.bilibili.com'):
         return settings.get('bilibili_cookies', DEFAULTS['bilibili_cookies'])
+    if host == 'douyin.com' or host.endswith('.douyin.com'):
+        return str(ROOT / 'Cookies' / 'douyin_cookies.txt')
     try:
         platforms = json.loads((ROOT / 'cookie_platforms.json').read_text(encoding='utf-8'))
         for entry in platforms:

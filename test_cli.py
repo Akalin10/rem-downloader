@@ -48,6 +48,7 @@ class InterfaceTests(unittest.TestCase):
                 cli.prepare_cookie_files()
                 self.assertEqual(cookie.read_text(), 'existing')
                 self.assertEqual(cli.cookies_for_url({}, 'https://vimeo.com/123'), str(root / 'Cookies' / 'vimeo_cookies.txt'))
+                self.assertEqual(cli.cookies_for_url({}, 'https://v.douyin.com/5CKgdiwRz9U/'), str(root / 'Cookies' / 'douyin_cookies.txt'))
 
     def test_youtube_download_isolated_from_plugins_and_uses_fragment_concurrency(self):
         settings = dict(cli.DEFAULTS, cookies='')
