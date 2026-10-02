@@ -458,7 +458,7 @@ def edit_settings(settings):
 
 
 def show_history():
-    UI.header('History', '履歴 / 最近下载任务')
+    UI.header('History', '履歴 / 最近下载任务', character=False)
     rows = read_history()
     if not rows:
         UI.box('历史记录', [('还没有下载记录。', 'muted')])

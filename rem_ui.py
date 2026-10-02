@@ -92,11 +92,11 @@ class Terminal:
             print(self.ink('│ ', tone) + self.ink(text, tint) + ' ' * (w - cells(text)) + self.ink(' │', tone))
         print(self.ink('╰' + '─' * (w + 2) + '╯', tone))
 
-    def header(self, title='Main Menu', subtitle='何をしますか？ / 请选择功能'):
+    def header(self, title='Main Menu', subtitle='何をしますか？ / 请选择功能', character=None):
         self.clear()
         print(self.ink('  ✿  REM TERMINAL', 'blue', True) + self.ink('   /   RE:ZERO', 'muted'))
         print()
-        if self.character and self.width >= 76:
+        if (self.character if character is None else character) and self.width >= 76:
             left = [('', 'text'), ('', 'text'), ('', 'text'), ('████  █████ █   █', 'blue'),
                     ('█   █ █     ██ ██', 'blue'), ('████  ████  █ █ █', 'blue'),
                     ('█  █  █     █   █', 'blue'), ('█   █ █████ █   █', 'blue'),
