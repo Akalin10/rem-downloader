@@ -277,8 +277,10 @@ def run_command(command, browser_retry=False):
                         folder.mkdir(parents=True, exist_ok=True)
                         target = folder / source.name
                         if source.resolve() != target.resolve():
-                            if target.exists():
-                                raise FileExistsError(f'目标文件已存在，保留新文件原位置：{source}')
+                            number = 2
+                            while target.exists():
+                                target = folder / f'{source.stem} ({number}){source.suffix}'
+                                number += 1
                             shutil.move(str(source), str(target))
                         saved = str(target)
                 CURRENT_TASK['path'] = saved

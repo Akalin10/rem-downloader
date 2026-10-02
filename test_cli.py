@@ -13,6 +13,25 @@ from rem_dashboard import layout, terminal_columns
 
 
 class InterfaceTests(unittest.TestCase):
+    def test_duplicate_download_is_kept_under_numbered_name(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / 'video.mp4'
+            source.write_bytes(b'new')
+            (root / 'MP4').mkdir()
+            (root / 'MP4' / source.name).write_bytes(b'original')
+            class Process:
+                stdout = io.StringIO('REM_FILE:' + json.dumps(str(source)) + '\n')
+                def wait(self):
+                    return 0
+            with patch.object(cli.subprocess, 'Popen', return_value=Process()), \
+                    patch.object(cli, 'HISTORY', root / 'history.json'), \
+                    patch.object(cli.sys.stdin, 'isatty', return_value=False), \
+                    contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(cli.run_command(['yt-dlp', '-P', directory, 'REM_FILE:']), 0)
+            self.assertEqual((root / 'MP4' / 'video.mp4').read_bytes(), b'original')
+            self.assertEqual((root / 'MP4' / 'video (2).mp4').read_bytes(), b'new')
+
     def test_browser_media_command_does_not_send_site_cookie_to_cdn(self):
         from douyin_browser import media_command, douyin_url
         original = ['yt-dlp', '--cookies', 'private.txt', '-f', 'bv[height=1080]+ba/b[height=1080]',
