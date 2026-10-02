@@ -13,6 +13,22 @@ from rem_dashboard import layout, terminal_columns
 
 
 class InterfaceTests(unittest.TestCase):
+    def test_video_menu_uses_available_heights(self):
+        data = {'formats': [
+            {'height': 480, 'vcodec': 'h264', 'acodec': 'aac'},
+            {'height': 360, 'vcodec': 'h264', 'acodec': 'none'},
+            {'height': 480, 'vcodec': 'h264', 'acodec': 'none'},
+            {'height': 2160, 'vcodec': 'none', 'acodec': 'none', 'ext': 'mhtml'}]}
+        with patch.object(cli, 'query_formats', return_value=data), \
+                patch.object(cli, 'build_command', return_value=['backend']), \
+                patch.object(cli, 'ffmpeg_available', return_value=True), \
+                patch.object(cli.UI, 'header'), patch.object(cli.UI, 'box'), \
+                patch.object(cli.UI, 'menu') as menu, \
+                patch.object(cli, 'choose', return_value='0'):
+            cli.download_video(dict(cli.DEFAULTS), 'https://example.com/video')
+        self.assertEqual(menu.call_args.args[1],
+                         [('01', '最高可用', ''), ('02', '480p', ''), ('03', '360p', '')])
+
     def test_audio_quality_label_and_session_status_values(self):
         from rem_dashboard import quality_line, REM_STATUS
         self.assertIn('音频', quality_line({'vcodec': 'none', 'acodec': 'opus', 'resolution': 'audio only'}))

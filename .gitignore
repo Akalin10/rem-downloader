@@ -26,6 +26,7 @@ last_download_error.log
 __pycache__/
 *.py[cod]
 .venv/
+.python-path
 venv/
 .pytest_cache/
 .coverage

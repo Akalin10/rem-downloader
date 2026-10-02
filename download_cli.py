@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import sys
 import time
+import tempfile
 import re
 import platform
 import getpass
@@ -218,12 +219,10 @@ def failure_advice(log):
     return '查看上方错误详情，检查网络、Cookies 与 FFmpeg 配置。'
 
 
-def show_formats(command):
+def query_formats(command):
     query = [arg for arg in command if arg != '-F']
     position = query.index('--')
     query[position:position] = ['--dump-single-json', '--quiet']
-    UI.header('Formats', '正在查询可用格式', character=False)
-    UI.box('格式查询', ['正在解析视频，请稍候…'])
     sys.stdout.flush()
     for attempt in range(2):
         try:
@@ -231,12 +230,12 @@ def show_formats(command):
                                     errors='replace', timeout=120)
         except (OSError, subprocess.TimeoutExpired):
             UI.result(False, ['格式查询失败或超时，请稍后重试。'])
-            return 1
+            return None
         if result.returncode == 0:
             break
         if attempt or '--cookies' not in query:
             UI.result(False, [shorten(result.stderr.strip().splitlines()[-1] if result.stderr.strip() else '格式查询失败', 76)])
-            return 1
+            return None
         index = query.index('--cookies')
         del query[index:index + 2]
         position = query.index('--')
@@ -245,6 +244,15 @@ def show_formats(command):
         data = json.loads(result.stdout)
     except ValueError:
         UI.result(False, ['下载器未返回有效的格式数据。'])
+        return None
+    return data
+
+
+def show_formats(command):
+    UI.header('Formats', '正在查询可用格式', character=False)
+    UI.box('格式查询', ['正在解析视频，请稍候…'])
+    data = query_formats(command)
+    if data is None:
         return 1
     formats = [f for f in data.get('formats', []) if f.get('ext') != 'mhtml']
     page = 0
@@ -474,15 +482,30 @@ def run_command(command, browser_retry=False, cookie_retry=False):
 
 
 def download_video(settings, url):
+    UI.header('Video Quality', '正在查询可用画质')
+    UI.box('视频画质', ['正在解析视频，请稍候…'])
+    data = query_formats(build_command(settings, url, ['-F'], download=False))
+    if data is None:
+        UI.ask('Enter 返回')
+        return
+    merge = ffmpeg_available(settings)
+    heights = sorted({int(f['height']) for f in data.get('formats', [])
+                      if isinstance(f.get('height'), (int, float)) and f['height'] > 0
+                      and f.get('vcodec') not in (None, 'none') and f.get('ext') != 'mhtml'
+                      and (merge or f.get('acodec') not in (None, 'none'))}, reverse=True)
+    if not heights:
+        UI.result(False, ['未获取到可下载的视频画质。'])
+        UI.ask('Enter 返回')
+        return
+    choices = {'1': None, **{str(i): height for i, height in enumerate(heights, 2)}}
+    default = next((key for key, height in choices.items() if height == 1080), '1')
     UI.header('Video Quality', '下载视频 / 严格匹配分辨率')
-    UI.menu('视频画质', [('01', '最高可用', '当前可获取的最佳画质'),
-            ('02', '2160p / 4K', ''), ('03', '1440p / 2K', ''),
-            ('04', '1080p / Full HD', '默认 · 不自动降级'), ('05', '720p / HD', ''), ('06', '480p', '')])
-    choice = choose('选择 [默认 4]：', {'0', '1', '2', '3', '4', '5', '6'}, '4')
+    UI.menu('视频画质', [('01', '最高可用', '')] +
+            [(f'{i:02}', f'{height}p', '') for i, height in enumerate(heights, 2)])
+    choice = choose(f'选择 [默认 {default}]：', set(choices) | {'0'}, default)
     if choice == '0':
         return
-    height = {'1': None, '2': 2160, '3': 1440, '4': 1080, '5': 720, '6': 480}[choice]
-    merge = ffmpeg_available(settings)
+    height = choices[choice]
     if not merge:
         print('未找到 FFmpeg：只能选择自带音轨且符合指定分辨率的格式；不可用时会报错。')
     else:
@@ -590,7 +613,7 @@ def show_history():
 def show_about():
     UI.header('About Rem Terminal', 'レムにお任せください。')
     UI.box('✿  About Rem Terminal  ✿', [
-        'Project  : Rem Downloader', 'Version  : 2.0.0',
+        'Project  : Rem Downloader', 'Version  : 1.0.0',
         'Theme    : Rem / Re:Zero', 'Engine   : yt-dlp',
         f'Python   : {sys.version.split()[0]}', 'Interface: ANSI terminal / Python standard library'])
 
@@ -677,6 +700,27 @@ def download_danmaku(settings, url):
         UI.ask('Enter 返回')
 
 
+def change_download_path(settings):
+    UI.header('Download Path', '下载路径')
+    UI.box('下载路径', [f'当前目录：{settings["output"]}'])
+    value = UI.ask('输入新目录（留空返回）').strip().strip('"')
+    if not value:
+        return
+    path = Path(os.path.expandvars(value)).expanduser()
+    if not path.is_absolute():
+        path = ROOT / path
+    path = path.resolve()
+    path.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryFile(dir=path):
+        pass
+    updated = {**settings, 'output': str(path)}
+    save_settings(updated)
+    settings.update(updated)
+    UI.result(True, [f'下载路径已保存：{path}'])
+    if sys.stdin.isatty():
+        UI.ask('Enter 返回')
+
+
 def _main_menu(settings):
     UI.header()
     UI.menu('✿  Main Menu  ✿', [
@@ -684,8 +728,9 @@ def _main_menu(settings):
         ('02', '下载音频', ''),
         ('03', '下载弹幕（仅Bilibili）', ''),
         ('04', '下载选项', ''),
-        ('05', '历史记录', ''),
-        ('06', '关于', '')], '')
+        ('05', '下载路径', ''),
+        ('06', '历史记录', ''),
+        ('07', '关于', '')], '')
 
 
 def system_info(settings):
@@ -812,13 +857,15 @@ def interactive_loop(settings):
     while True:
         main_menu(settings)
         try:
-            choice = choose('请选择功能 [01–06]', {'0', '1', '2', '3', '4', '5', '6'})
+            choice = choose('请选择功能 [01–07]', {'0', '1', '2', '3', '4', '5', '6', '7'})
             if choice == '0':
                 return
-            if choice == '4':
+            if choice == '5':
+                change_download_path(settings)
+            elif choice == '4':
                 download_options(settings)
-            elif choice in ('5', '6'):
-                show_history() if choice == '5' else show_about()
+            elif choice in ('6', '7'):
+                show_history() if choice == '6' else show_about()
                 if sys.stdin.isatty():
                     UI.ask('Enter 返回')
             else:
