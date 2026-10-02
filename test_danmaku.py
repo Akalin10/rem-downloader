@@ -79,7 +79,7 @@ class DanmakuTests(unittest.TestCase):
             self.assertEqual(cli.CURRENT_TASK['status'], '完成')
             self.assertEqual(ass.read_text(encoding='utf-8-sig').count('Dialogue:'), 2)
             self.assertEqual([p for p in Path(directory).rglob('*') if p.is_file()], [ass])
-            self.assertIn('不去重', output.getvalue())
+            self.assertNotIn('（不去重）', output.getvalue())
 
     def test_protobuf_unknown_fields_and_duplicates(self):
         items = parse_segment(segment() + segment() + field(20, b'unknown'))

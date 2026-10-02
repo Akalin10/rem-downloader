@@ -12,7 +12,7 @@ import re
 import platform
 import getpass
 from rem_screen import Canvas
-from rem_dashboard import layout, terminal_columns
+from rem_dashboard import layout, terminal_columns, quality_line
 from datetime import datetime
 from urllib.parse import urlparse
 from rem_ui import UI, shorten
@@ -271,7 +271,7 @@ def run_command(command, browser_retry=False):
         UI.header('Downloading', 'レムがダウンロード中… / 正在下载')
         UI.box('↓ Downloading / 下载任务', [
             f'任务名称 : {CURRENT_TASK.get("title", "正在解析视频信息…")}',
-            f'实际画质 : {CURRENT_TASK.get("resolution", "—")}',
+            quality_line(CURRENT_TASK),
             f'格式     : {CURRENT_TASK.get("format", "—")}',
             ('Ctrl+C 取消 · 支持断点续传', 'muted')], width=84)
         if CURRENT_TASK.get('notice'):
@@ -306,7 +306,7 @@ def run_command(command, browser_retry=False):
                         continue
                     UI.box('↓  Downloading / 下载任务', [
                         f'任务名称 : {metadata.get("title", "未知")}',
-                        f'实际画质 : {metadata.get("resolution", "未知")}',
+                        quality_line(metadata),
                         f'视频编码 : {metadata.get("vcodec", "未知")}',
                         f'音频编码 : {metadata.get("acodec", "未知")}',
                         f'格式     : {metadata.get("format", "未知")}',
@@ -437,7 +437,7 @@ def run_command(command, browser_retry=False):
             if saved and Path(saved).is_file():
                 size = f'{Path(saved).stat().st_size / (1024 * 1024):.2f} MiB'
             UI.result(True, [f'文件名   : {Path(saved).name if saved else "已保存"}',
-                             f'实际画质 : {metadata.get("resolution", "未知")}',
+                             quality_line(metadata),
                              f'文件大小 : {size or "未知"}', f'任务耗时 : {elapsed:.1f} 秒',
                              f'保存路径 : {saved}', ('[Enter] 返回菜单', 'cyan')])
         else:
@@ -578,7 +578,7 @@ def show_history():
         return
     for row in reversed(rows[-8:]):
         UI.box(f'{row.get("status", "未知")} / {row.get("time", "")}',
-               [str(row.get('title', '未知')), f'画质 : {row.get("resolution", "未知")}',
+               [str(row.get('title', '未知')), quality_line(row),
                 f'路径 : {row.get("path", "") or "未保存"}'],
                'green' if row.get('status') == '完成' else 'yellow')
 
@@ -594,10 +594,7 @@ def show_about():
 def download_danmaku(settings, url):
     from bilibili_danmaku import BilibiliClient, write_ass
     UI.header('Bilibili Danmaku', 'B站弹幕 / PotPlayer ASS')
-    UI.note('保留全部返回内容与重复弹幕，不限制数量。')
-    UI.note('只获取当前接口可见弹幕，不包含已删除或所有历史弹幕。', 'muted')
     cookie_path = cookies_for_url(settings, url)
-    UI.note('优先无 Cookie 获取弹幕；失败后尝试对应平台 Cookie。', 'muted')
     client = BilibiliClient('')
     using_cookie = False
     def request(action):
@@ -652,14 +649,23 @@ def download_danmaku(settings, url):
                                 f'弹幕 : {count} 条', '获取全部分段后仅导出 ASS。'])
             sys.stdout.flush()
         messages, ass = request(lambda current: current.download(video, page, settings['output'], progress))
+        reported = video.get('stat', {}).get('danmaku', 0)
+        if (not using_cookie and cookie_available(cookie_path) and len(video['pages']) == 1
+                and isinstance(reported, int) and len(messages) < reported):
+            try:
+                authenticated = BilibiliClient(cookie_path)
+                extra, extra_ass = authenticated.download(video, page, settings['output'], progress)
+                if len(extra) > len(messages):
+                    messages, ass = extra, extra_ass
+            except (ValueError, OSError):
+                pass
         ass_folder = Path(settings['output']).expanduser() / 'ASS'
         ass_folder.mkdir(parents=True, exist_ok=True)
         special = write_ass(messages, ass, font_size, opacity, duration)
         CURRENT_TASK.update(status='完成', percent=100, path=str(ass), downloaded=f'{len(messages)} 条',
                             total=f'{len(messages)} 条', notice='')
         UI.header('Danmaku Completed', '弹幕已保存 / PotPlayer ASS')
-        lines = [f'弹幕数量 : {len(messages)} 条（不去重）', f'ASS : {ass}',
-                 '将 ASS 拖入 PotPlayer；启用 ASS/SSA 动画及字幕原始样式。']
+        lines = [f'弹幕数量 : {len(messages)} 条', f'ASS : {ass}']
         if not messages:
             lines.append(('接口未返回弹幕，导出的文件为空。', 'yellow'))
         if special:
@@ -685,9 +691,7 @@ def _main_menu(settings):
         ('03', '下载弹幕（仅Bilibili）', ''),
         ('04', '下载选项', ''),
         ('05', '历史记录', ''),
-        ('06', '工具', ''),
-        ('07', '关于', '')], '[00] 退出 · また、よろしくお願いします。')
-    UI.note('保存到：' + shorten(settings['output'], UI.width - 15), 'muted')
+        ('06', '关于', '')], '')
 
 
 def system_info(settings):
@@ -814,16 +818,12 @@ def interactive_loop(settings):
     while True:
         main_menu(settings)
         try:
-            choice = choose('请选择功能 [01–07]', {'0', '1', '2', '3', '4', '5', '6', '7'})
+            choice = choose('请选择功能 [01–06]', {'0', '1', '2', '3', '4', '5', '6'})
             if choice == '0':
                 return
             if choice == '4':
                 download_options(settings)
-            elif choice == '6':
-                diagnose(settings)
-                if sys.stdin.isatty():
-                    UI.ask('Enter 返回')
-            elif choice in ('5', '7'):
+            elif choice in ('5', '6'):
                 show_history() if choice == '5' else show_about()
                 if sys.stdin.isatty():
                     UI.ask('Enter 返回')

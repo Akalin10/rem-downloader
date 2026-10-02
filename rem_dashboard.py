@@ -4,7 +4,15 @@ from pathlib import Path
 import shutil
 import os
 import ctypes
+import random
 from rem_ui import Terminal, cells, shorten
+
+REM_STATUS = tuple(random.SystemRandom().randint(1, 100) for _ in range(3))
+
+
+def quality_line(task):
+    audio = task.get('vcodec') == 'none' or task.get('resolution') == 'audio only'
+    return f'音频   : {task.get("acodec") or "仅音频"}' if audio else f'画质   : {task.get("resolution", "—")}'
 
 
 def terminal_columns():
@@ -95,11 +103,11 @@ def render_dashboard(width, color, system, settings, task, height=None):
         ('                 — レム', 'pink')], 'pink'))
     status_lines = [
         '',
-        ('応援  ' + bar(100, 15) + ' 100%', 'pink'),
+        ('応援  ' + bar(REM_STATUS[0], 15) + f' {REM_STATUS[0]:3}%', 'pink'),
         '',
-        ('癒し  ' + bar(100, 15) + ' 100%', 'blue'),
+        ('癒し  ' + bar(REM_STATUS[1], 15) + f' {REM_STATUS[1]:3}%', 'blue'),
         '',
-        ('元気  ' + bar(90, 15) + '  90%', 'green'),
+        ('元気  ' + bar(REM_STATUS[2], 15) + f' {REM_STATUS[2]:3}%', 'green'),
     ]
     status_lines += [''] * max(0, len(left) - len(right) - len(status_lines) - 2)
     right += capture(lambda: small.box('✿ Rem Status / 蕾姆状态', status_lines))
@@ -112,7 +120,7 @@ def render_dashboard(width, color, system, settings, task, height=None):
         (f'{bar(percent, max(12, width - 17))} {percent:.1f}%', 'blue'),
         f'已下载 : {task.get("downloaded", "—")} / {task.get("total", "—")}',
         f'速度   : {task.get("speed", "—")}    ETA : {task.get("eta", "—")}',
-        f'画质   : {task.get("resolution", "—")}',
+        quality_line(task),
         f'格式   : {task.get("format", "—")}',
         f'保存   : {task.get("path", settings["output"])}',
         ('─' * (width - 4), 'muted'),
@@ -205,7 +213,7 @@ def compose_page(left, width, height, color, system, settings, task):
             f'Python : {system.get("python", "—")}',
             f'yt-dlp : {system.get("yt-dlp", "—")}',
             f'Path : {settings["output"]}']))
-        right += capture(lambda: ui.box('Rem Status / 蕾姆状态', [('応援 100% · 癒し 100% · 元気 90%', 'pink')]))
+        right += capture(lambda: ui.box('Rem Status / 蕾姆状态', [(f'応援 {REM_STATUS[0]}% · 癒し {REM_STATUS[1]}% · 元気 {REM_STATUS[2]}%', 'pink')]))
         task_lines = [
             task.get('status', '空闲 / Idle'), task.get('title', '等待下载'),
             (f'{bar(task.get("percent", 0), max(4, right_width - 15))} {task.get("percent", 0):.1f}%', 'blue'),

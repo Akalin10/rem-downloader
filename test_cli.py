@@ -13,6 +13,14 @@ from rem_dashboard import layout, terminal_columns
 
 
 class InterfaceTests(unittest.TestCase):
+    def test_audio_quality_label_and_session_status_values(self):
+        from rem_dashboard import quality_line, REM_STATUS
+        self.assertIn('音频', quality_line({'vcodec': 'none', 'acodec': 'opus', 'resolution': 'audio only'}))
+        self.assertNotIn('画质', quality_line({'resolution': 'audio only'}))
+        self.assertIn('画质', quality_line({'resolution': '1920x1080'}))
+        self.assertEqual(len(REM_STATUS), 3)
+        self.assertTrue(all(1 <= value <= 100 for value in REM_STATUS))
+
     def test_subtitle_menu_requests_subtitles_without_downloading_video(self):
         settings = dict(cli.DEFAULTS)
         with tempfile.TemporaryDirectory() as directory:
