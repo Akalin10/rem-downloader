@@ -632,14 +632,13 @@ def _main_menu(settings):
     UI.header()
     UI.menu('✿  Main Menu  ✿', [
         ('01', '下载视频', ''),
-        ('02', '仅下载音频', ''),
-        ('03', '查看可用格式', ''),
-        ('04', '按格式 ID 下载', ''),
-        ('05', '设置', ''),
+        ('02', '下载音频', ''),
+        ('03', '下载字幕 / 弹幕', ''),
+        ('04', '下载选项', ''),
+        ('05', '历史记录', ''),
         ('06', '工具', ''),
-        ('07', '历史记录', ''),
-        ('08', '关于蕾姆', ''),
-        ('09', '下载B站弹幕', '')], '[00] 退出 · また、よろしくお願いします。')
+        ('07', '设置', ''),
+        ('08', '关于', '')], '[00] 退出 · また、よろしくお願いします。')
     UI.note('保存到：' + shorten(settings['output'], UI.width - 15), 'muted')
 
 
@@ -725,21 +724,61 @@ def main():
         interactive_loop(settings)
 
 
+def download_text(settings, url):
+    UI.header('Subtitles / Danmaku', '字幕与弹幕')
+    UI.menu('下载字幕 / 弹幕', [('01', 'B站弹幕（ASS）', ''), ('02', '视频字幕', '')])
+    choice = choose('请选择', {'0', '1', '2'}, '1')
+    if choice == '1':
+        download_danmaku(settings, url)
+    elif choice == '2':
+        convert = ffmpeg_available(settings)
+        folder = Path(settings['output']).expanduser() / ('SRT' if convert else 'VTT')
+        folder.mkdir(parents=True, exist_ok=True)
+        options = ['--skip-download', '--write-subs', '--write-auto-subs', '--sub-langs', 'all,-live_chat',
+                   '--sub-format', 'srt/best' if convert else 'vtt/best', '-P', str(folder),
+                   '-o', '%(title)s [%(id)s].%(ext)s']
+        if convert:
+            options += ['--convert-subs', 'srt']
+        run_command(build_command(settings, url, options, download=False))
+        UI.note('字幕目录：' + str(folder))
+        if sys.stdin.isatty():
+            UI.ask('Enter 返回')
+
+
+def download_options(settings):
+    UI.header('Download Options', '下载选项')
+    UI.menu('下载选项', [('01', '查看可用格式', ''), ('02', '按格式 ID 下载', '')])
+    choice = choose('请选择', {'0', '1', '2'}, '1')
+    if choice == '0':
+        return
+    url = url_input()
+    if not url:
+        return
+    if choice == '2':
+        custom_download(settings, url)
+    else:
+        run_command(build_command(settings, url, ['-F'], download=False))
+        if sys.stdin.isatty():
+            UI.ask('Enter 返回')
+
+
 def interactive_loop(settings):
     while True:
         main_menu(settings)
         try:
-            choice = choose('请选择功能 [01–09]', {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9'})
+            choice = choose('请选择功能 [01–08]', {'0', '1', '2', '3', '4', '5', '6', '7', '8'})
             if choice == '0':
                 return
-            if choice == '5':
+            if choice == '7':
                 edit_settings(settings)
+            elif choice == '4':
+                download_options(settings)
             elif choice == '6':
                 diagnose(settings)
                 if sys.stdin.isatty():
                     UI.ask('Enter 返回')
-            elif choice in ('7', '8'):
-                show_history() if choice == '7' else show_about()
+            elif choice in ('5', '8'):
+                show_history() if choice == '5' else show_about()
                 if sys.stdin.isatty():
                     UI.ask('Enter 返回')
             else:
@@ -751,14 +790,7 @@ def interactive_loop(settings):
                 elif choice == '2':
                     download_audio(settings, url)
                 elif choice == '3':
-                    UI.header('Formats', '查看真实分辨率与格式 ID')
-                    run_command(build_command(settings, url, ['-F'], download=False))
-                    if sys.stdin.isatty():
-                        UI.ask('Enter 返回')
-                elif choice == '9':
-                    download_danmaku(settings, url)
-                else:
-                    custom_download(settings, url)
+                    download_text(settings, url)
         except (ValueError, OSError) as exc:
             UI.result(False, [f'操作失败：{exc}'])
             if sys.stdin.isatty():

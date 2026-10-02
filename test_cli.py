@@ -13,6 +13,21 @@ from rem_dashboard import layout, terminal_columns
 
 
 class InterfaceTests(unittest.TestCase):
+    def test_subtitle_menu_requests_subtitles_without_downloading_video(self):
+        settings = dict(cli.DEFAULTS)
+        with tempfile.TemporaryDirectory() as directory:
+            settings['output'] = directory
+            with patch.object(cli.UI, 'header'), patch.object(cli.UI, 'menu'), patch.object(cli.UI, 'note'), \
+                    patch.object(cli, 'choose', return_value='2'), patch.object(cli, 'ffmpeg_available', return_value=True), \
+                    patch.object(cli, 'backend_command', return_value=['yt-dlp']), \
+                    patch.object(cli, 'run_command') as run, patch.object(cli.sys.stdin, 'isatty', return_value=False):
+                cli.download_text(settings, 'https://example.com/video')
+            command = run.call_args.args[0]
+            self.assertIn('--skip-download', command)
+            self.assertIn('--write-subs', command)
+            self.assertIn('--write-auto-subs', command)
+            self.assertEqual(command[command.index('--convert-subs') + 1], 'srt')
+
     def test_duplicate_download_is_kept_under_numbered_name(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
