@@ -214,7 +214,56 @@ def failure_advice(log):
     return '查看上方错误详情，检查网络、Cookies 与 FFmpeg 配置。'
 
 
+def show_formats(command):
+    query = [arg for arg in command if arg != '-F']
+    position = query.index('--')
+    query[position:position] = ['--dump-single-json', '--quiet']
+    UI.header('Formats', '正在查询可用格式', character=False)
+    UI.box('格式查询', ['正在解析视频，请稍候…'])
+    sys.stdout.flush()
+    for attempt in range(2):
+        try:
+            result = subprocess.run(query, capture_output=True, text=True, encoding='utf-8',
+                                    errors='replace', timeout=120)
+        except (OSError, subprocess.TimeoutExpired):
+            UI.result(False, ['格式查询失败或超时，请稍后重试。'])
+            return 1
+        if result.returncode == 0:
+            break
+        cookie = cookies_for_url(load_settings(), command[-1])
+        if attempt or '--cookies' in query or not cookie_available(cookie):
+            UI.result(False, [shorten(result.stderr.strip().splitlines()[-1] if result.stderr.strip() else '格式查询失败', 76)])
+            return 1
+        query = [arg for arg in query if arg != '--no-cookies']
+        position = query.index('--')
+        query[position:position] = ['--cookies', cookie]
+    try:
+        data = json.loads(result.stdout)
+    except ValueError:
+        UI.result(False, ['下载器未返回有效的格式数据。'])
+        return 1
+    formats = [f for f in data.get('formats', []) if f.get('ext') != 'mhtml']
+    page = 0
+    pages = max(1, (len(formats) + 9) // 10)
+    while True:
+        UI.header('Formats', '可用格式 / ' + shorten(data.get('title', ''), 55), character=False)
+        lines = ['ID          格式  分辨率 / 帧率 / 编码']
+        for f in formats[page * 10:(page + 1) * 10]:
+            resolution = '仅音频' if f.get('vcodec') == 'none' else f.get('resolution', '未知')
+            codec = f.get('acodec') if f.get('vcodec') == 'none' else f.get('vcodec')
+            lines.append(f'{f.get("format_id", "?"):<11} {f.get("ext", "?"):<5} {resolution}  {f.get("fps") or "—"}fps  {codec or "—"}')
+        UI.box(f'可用格式 [{page + 1}/{pages}]', lines, width=84)
+        if not sys.stdin.isatty():
+            return 0
+        action = choose('1 下一页 / 2 上一页 / 0 返回', {'0', '1', '2'}, '0')
+        if action == '0':
+            return 0
+        page = (page + (1 if action == '1' else -1)) % pages
+
+
 def run_command(command, browser_retry=False):
+    if '-F' in command:
+        return show_formats(command)
     def refresh_download():
         from rem_screen import ACTIVE_SCREEN
         if not ACTIVE_SCREEN:
@@ -633,12 +682,11 @@ def _main_menu(settings):
     UI.menu('✿  Main Menu  ✿', [
         ('01', '下载视频', ''),
         ('02', '下载音频', ''),
-        ('03', '下载字幕 / 弹幕', ''),
+        ('03', '下载弹幕（仅Bilibili）', ''),
         ('04', '下载选项', ''),
         ('05', '历史记录', ''),
         ('06', '工具', ''),
-        ('07', '设置', ''),
-        ('08', '关于', '')], '[00] 退出 · また、よろしくお願いします。')
+        ('07', '关于', '')], '[00] 退出 · また、よろしくお願いします。')
     UI.note('保存到：' + shorten(settings['output'], UI.width - 15), 'muted')
 
 
@@ -766,18 +814,16 @@ def interactive_loop(settings):
     while True:
         main_menu(settings)
         try:
-            choice = choose('请选择功能 [01–08]', {'0', '1', '2', '3', '4', '5', '6', '7', '8'})
+            choice = choose('请选择功能 [01–07]', {'0', '1', '2', '3', '4', '5', '6', '7'})
             if choice == '0':
                 return
-            if choice == '7':
-                edit_settings(settings)
-            elif choice == '4':
+            if choice == '4':
                 download_options(settings)
             elif choice == '6':
                 diagnose(settings)
                 if sys.stdin.isatty():
                     UI.ask('Enter 返回')
-            elif choice in ('5', '8'):
+            elif choice in ('5', '7'):
                 show_history() if choice == '5' else show_about()
                 if sys.stdin.isatty():
                     UI.ask('Enter 返回')
@@ -790,7 +836,7 @@ def interactive_loop(settings):
                 elif choice == '2':
                     download_audio(settings, url)
                 elif choice == '3':
-                    download_text(settings, url)
+                    download_danmaku(settings, url)
         except (ValueError, OSError) as exc:
             UI.result(False, [f'操作失败：{exc}'])
             if sys.stdin.isatty():

@@ -56,7 +56,7 @@ class DanmakuTests(unittest.TestCase):
     def test_menu_dispatches_danmaku_without_video_download(self):
         import download_cli as cli
         with patch.object(cli, 'main_menu'), patch.object(cli.UI, 'header'), patch.object(cli.UI, 'menu'), \
-                patch.object(cli, 'choose', side_effect=['3', '1', '0']), \
+                patch.object(cli, 'choose', side_effect=['3', '0']), \
                 patch.object(cli, 'url_input', return_value='https://www.bilibili.com/video/BV1xx411c7mD'), \
                 patch.object(cli, 'download_danmaku') as action, patch.object(cli, 'custom_download') as other:
             cli.interactive_loop(cli.DEFAULTS)

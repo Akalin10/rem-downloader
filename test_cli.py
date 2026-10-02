@@ -77,7 +77,7 @@ class InterfaceTests(unittest.TestCase):
             with patch.object(cli, 'load_settings', return_value=settings), \
                     patch.object(cli.subprocess, 'Popen', side_effect=[Process(1), Process(1)]) as start, \
                     contextlib.redirect_stdout(io.StringIO()):
-                command = ['yt-dlp', '--no-cookies', '-F', '--', 'https://youtu.be/test']
+                command = ['yt-dlp', '--no-cookies', '--simulate', '--', 'https://youtu.be/test']
                 self.assertEqual(cli.run_command(command), 1)
             self.assertEqual(start.call_count, 2)
             retry = start.call_args_list[1].args[0]
