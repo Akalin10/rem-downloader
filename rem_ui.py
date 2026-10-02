@@ -101,9 +101,8 @@ class Terminal:
                     ('█   █ █     ██ ██', 'blue'), ('████  ████  █ █ █', 'blue'),
                     ('█  █  █     █   █', 'blue'), ('█   █ █████ █   █', 'blue'),
                     ('Rem Terminal Assistant', 'blue'), ('レムにお任せください。', 'pink'),
-                    ('', 'text'), (title, 'text'), (subtitle, 'muted'),
-                    ('', 'text'), ('✿  青い髪のメイド', 'pink'),
-                    ('REM / RE:ZERO', 'muted')]
+                    ('', 'text'), (title if title != 'Main Menu' else '', 'text'),
+                    (subtitle if title != 'Main Menu' else '', 'muted')]
             w = min(self.width, 84) - 4
             caption = ' ✿  REM / TERMINAL ASSISTANT  ✿ '
             print(self.ink('╭─' + caption + '─' * (w - cells(caption) + 1) + '╮', 'cyan'))
