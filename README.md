@@ -1,5 +1,7 @@
 # Rem Downloader
 
+![Rem Downloader 主界面](assets/screenshot.png)
+
 基于 yt-dlp 和 FFmpeg 的中文终端下载工具，提供固定屏幕界面、视频及音频下载、格式查询、按格式 ID 下载和 Bilibili 弹幕 ASS 导出。
 
 ## 安装与启动
